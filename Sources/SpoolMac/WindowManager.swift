@@ -55,6 +55,9 @@ public final class WindowManager {
   private var nextID: WindowID = 1
   private var displays: [Display] = []
   private var activeKeys: [String: StripKey] = [:]
+  private var spanDisplay: Display?
+  private var spanParts: [Display] = []
+  private var separateSpaces = true
   private var strips: [StripKey: Strip] = [:]
   private var springs: [StripKey: Spring] = [:]
   private var lastTargets: [WindowID: CGRect] = [:]
@@ -221,7 +224,7 @@ public final class WindowManager {
     var destination = strips[targetKey] ?? Strip()
     destination.insert(id, width: width, focus: true)
     if let index = destination.focusedColumn {
-      destination.scroll = destination.revealScroll(column: index, mode: settings.centerMode, geometry(target))
+      destination.scroll = revealScroll(destination, column: index, target)
     }
     strips[targetKey] = destination
     relayout(key, animated: true)
@@ -400,14 +403,15 @@ public final class WindowManager {
 
     let frontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier == pid
     let focused = window.isPrompt || (frontmost && focusedElement(of: pid).map { CFEqual($0, element) } == true)
+    guard let stripDisplay = self.display(for: key) else { return }
     var strip = strips[key] ?? Strip()
-    let geometry = geometry(display)
+    let geometry = geometry(stripDisplay)
     strip.insert(window.id, width: columnWidth(frame, geometry), focus: focused)
     if window.isPrompt, let index = strip.columnIndex(of: window.id) {
       strip.columns[index].fixedHeight = frame.height
     }
     if focused, let index = strip.focusedColumn {
-      strip.scroll = strip.revealScroll(column: index, mode: settings.centerMode, geometry)
+      strip.scroll = revealScroll(strip, column: index, stripDisplay)
     }
     strips[key] = strip
     relayout(key, animated: true)
@@ -422,7 +426,7 @@ public final class WindowManager {
     for (key, var strip) in strips where strip.contains(id) {
       strip.remove(id)
       if let index = strip.focusedColumn, let display = display(for: key) {
-        strip.scroll = strip.revealScroll(column: index, mode: settings.centerMode, geometry(display))
+        strip.scroll = revealScroll(strip, column: index, display)
       }
       strips[key] = strip
       if activeKeys[key.display] == key { relayout(key, animated: true) }
@@ -460,8 +464,22 @@ public final class WindowManager {
     refreshSnapshots(after: 0.6)
     displays = Display.current()
     activeKeys = [:]
-    for display in displays where !settings.excludedDisplayIDs.contains(display.uuid) {
-      activeKeys[display.uuid] = StripKey(display: display.uuid, space: Spaces.currentSpace(displayUUID: display.uuid))
+    separateSpaces = !(UserDefaults(suiteName: "com.apple.spaces")?.bool(forKey: "spans-displays") ?? false)
+    let included = displays.filter { !settings.excludedDisplayIDs.contains($0.uuid) }
+    if settings.spanDisplays, included.count > 1, Display.sideBySide(included) {
+      let span = Display.spanning(included)
+      let anchor = included.first(where: \.isPrimary) ?? included[0]
+      let key = StripKey(display: span.uuid, space: Spaces.currentSpace(displayUUID: anchor.uuid))
+      spanDisplay = span
+      spanParts = included.sorted { $0.frame.minX < $1.frame.minX }
+      activeKeys[span.uuid] = key
+      included.forEach { activeKeys[$0.uuid] = key }
+    } else {
+      spanDisplay = nil
+      spanParts = []
+      for display in included {
+        activeKeys[display.uuid] = StripKey(display: display.uuid, space: Spaces.currentSpace(displayUUID: display.uuid))
+      }
     }
 
     for app in NSWorkspace.shared.runningApplications where Self.isManageable(app) && observers[app.processIdentifier] == nil {
@@ -491,8 +509,8 @@ public final class WindowManager {
     }
 
     let focusedID = focusedManagedWindow()?.id
-    for display in displays {
-      guard let key = activeKeys[display.uuid] else { continue }
+    for key in Set(activeKeys.values) {
+      guard let display = display(for: key) else { continue }
       let geometry = geometry(display)
       let entries = (found[key] ?? []).sorted { $0.1.minX < $1.1.minX }
       let ids = Set(entries.map(\.0.id))
@@ -510,7 +528,7 @@ public final class WindowManager {
       }
       if let focusedID, strip.contains(focusedID) { strip.focus(window: focusedID) }
       if let index = strip.focusedColumn {
-        strip.scroll = strip.revealScroll(column: index, mode: settings.centerMode, geometry)
+        strip.scroll = revealScroll(strip, column: index, display)
       }
       strips[key] = strip
       relayout(key, animated: false)
@@ -557,7 +575,7 @@ public final class WindowManager {
       return
     }
     if let index = strip.focusedColumn {
-      strip.scroll = strip.revealScroll(column: index, mode: settings.centerMode, geometry(display))
+      strip.scroll = revealScroll(strip, column: index, display)
     }
     let moved = strip != strips[key]
     strips[key] = strip
@@ -583,7 +601,7 @@ public final class WindowManager {
     let moved = abs(actual.minX - target.minX) > 2 || abs(actual.minY - target.minY) > 2 || abs(actual.height - target.height) > 2
     guard widthChanged || moved else { return }
 
-    if moved, wasDragged, let landed = self.display(containing: actual), landed.uuid != display.uuid, let landedKey = activeKeys[landed.uuid] {
+    if moved, wasDragged, let landed = self.display(containing: actual), let landedKey = activeKeys[landed.uuid], landedKey != key {
       moveWindow(window.id, from: key, to: landedKey, width: columnWidth(actual, geometry(landed))) {
         $0.insertionIndex(forScreenX: actual.midX, $1)
       }
@@ -614,7 +632,7 @@ public final class WindowManager {
     let fixedHeight = source.columns.first { $0.windows.contains(id) }?.fixedHeight
     source.remove(id)
     if let index = source.focusedColumn {
-      source.scroll = source.revealScroll(column: index, mode: settings.centerMode, geometry(sourceDisplay))
+      source.scroll = revealScroll(source, column: index, sourceDisplay)
     }
     strips[sourceKey] = source
 
@@ -623,7 +641,7 @@ public final class WindowManager {
     target.insert(id, width: width, at: position(target, targetGeometry))
     if let column = target.columnIndex(of: id) { target.columns[column].fixedHeight = fixedHeight }
     if let index = target.focusedColumn {
-      target.scroll = target.revealScroll(column: index, mode: settings.centerMode, targetGeometry)
+      target.scroll = revealScroll(target, column: index, targetDisplay)
     }
     strips[targetKey] = target
     corrections[id] = nil
@@ -644,8 +662,8 @@ public final class WindowManager {
 
 
   private func wheel(_ delta: Double, at point: CGPoint) -> Bool {
-    guard isRunning, let display = displays.first(where: { $0.contains(point) }), let key = activeKeys[display.uuid], var strip = strips[key],
-      !strip.isEmpty
+    guard isRunning, let pointed = displays.first(where: { $0.contains(point) }), let key = activeKeys[pointed.uuid], var strip = strips[key],
+      !strip.isEmpty, let display = display(for: key)
     else {
       return false
     }
@@ -678,7 +696,8 @@ public final class WindowManager {
       snapTimers[key]?.invalidate()
       swiping.insert(key)
     case .changed(let fraction):
-      let value = strip.clampedScroll(strip.scroll + fraction * display.visibleFrame.width, geometry(display))
+      guard let stripDisplay = self.display(for: key) else { return }
+      let value = strip.clampedScroll(strip.scroll + fraction * display.visibleFrame.width, geometry(stripDisplay))
       strip.scroll = value
       strips[key] = strip
       var spring = springs[key] ?? Spring(position: value)
@@ -701,7 +720,11 @@ public final class WindowManager {
   private func settle(_ key: StripKey, snap: Bool) {
     guard var strip = strips[key], let display = display(for: key) else { return }
     let geometry = geometry(display)
-    if snap { strip.scroll = strip.snapScroll(near: strip.scroll, geometry) }
+    if snap {
+      strip.scroll = display.isSpan && separateSpaces
+        ? strip.seamSafeSnapScroll(near: strip.scroll, seams: seams, keepVisible: nil, geometry)
+        : strip.snapScroll(near: strip.scroll, geometry)
+    }
     var focusTarget: WindowID?
     if let leftmost = strip.leftmostVisibleColumn(at: strip.scroll, geometry), leftmost != strip.focusedColumn {
       strip.focusedColumn = leftmost
@@ -734,20 +757,28 @@ public final class WindowManager {
       apply(key, scroll: scroll)
       return
     }
-    let unclipped = LayoutContext(geometry: geometry(display), displayFrame: display.frame, otherDisplays: [])
+    var unclipped = context(display)
+    unclipped.otherDisplays = []
     let frames = strip.layout(unclipped, scroll: scroll).compactMap { id, placement -> (id: WindowID, frame: CGRect, snapshot: Snapshot?)? in
       guard placement.isVisible, windows[id] != nil else { return nil }
       return (id, placement.frame, snapshots.windows[id])
     }
-    overlay.update(on: display, frames: frames)
+    for surface in surfaces(of: display) {
+      overlay.update(on: surface, frames: frames.filter { $0.frame.intersects(surface.visibleFrame) })
+    }
+  }
+
+  private func surfaces(of display: Display) -> [Display] {
+    display.isSpan ? spanParts : [display]
   }
 
   private func beginSlide(_ key: StripKey) -> Bool {
     if sliding.contains(key) { return true }
-    guard settings.smoothSlides, snapshots.isAvailable, let display = display(for: key),
-      let wallpaper = snapshots.wallpapers[display.uuid]
-    else { return false }
-    overlay.show(on: display, wallpaper: wallpaper)
+    guard settings.smoothSlides, snapshots.isAvailable, let display = display(for: key) else { return false }
+    let parts = surfaces(of: display)
+    let wallpapers = parts.compactMap { snapshots.wallpapers[$0.uuid] }
+    guard wallpapers.count == parts.count else { return false }
+    zip(parts, wallpapers).forEach { overlay.show(on: $0, wallpaper: $1) }
     sliding.insert(key)
     return true
   }
@@ -759,7 +790,9 @@ public final class WindowManager {
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self] in
         guard let self, self.sliding.contains(key), self.springs[key]?.isSettled != false, !self.swiping.contains(key) else { return }
         self.sliding.remove(key)
-        self.overlay.hide(key.display)
+        if let display = self.display(for: key) {
+          self.surfaces(of: display).forEach { self.overlay.hide($0.uuid) }
+        }
         self.refreshSnapshots(after: 0.3)
       }
     }
@@ -824,16 +857,18 @@ public final class WindowManager {
   private func restoreAllWindows() {
     writer.cancelPending()
     for (key, strip) in strips {
-      guard let display = displays.first(where: { $0.uuid == key.display }) ?? displays.first else { continue }
-      let visible = display.visibleFrame
-      let gap = settings.outerGap
-      let geometry = StripGeometry(viewport: visible, innerGap: settings.innerGap, outerGap: gap)
+      let home = displays.first(where: { $0.uuid == key.display })
       for column in strip.columns {
-        let width = min(geometry.points(forFraction: column.width), visible.width - 2 * gap)
-        let rows = Double(column.windows.count)
-        let rowHeight = ((geometry.usableHeight - (rows - 1) * settings.innerGap) / rows).rounded(.down)
         for (row, id) in column.windows.enumerated() {
-          guard let window = windows[id], let current = AX.frame(window.element) else { continue }
+          guard let window = windows[id], let current = AX.frame(window.element),
+            let display = home ?? self.display(containing: current) ?? displays.first
+          else { continue }
+          let visible = display.visibleFrame
+          let gap = settings.outerGap
+          let geometry = StripGeometry(viewport: visible, innerGap: settings.innerGap, outerGap: gap)
+          let width = min(geometry.points(forFraction: column.width), visible.width - 2 * gap)
+          let rows = Double(column.windows.count)
+          let rowHeight = ((geometry.usableHeight - (rows - 1) * settings.innerGap) / rows).rounded(.down)
           let height = column.fixedHeight.map { min($0, rowHeight) } ?? rowHeight
           let x = min(max(current.minX, visible.minX + gap), visible.maxX - gap - width)
           let y = visible.minY + gap + Double(row) * (rowHeight + settings.innerGap)
@@ -880,7 +915,25 @@ public final class WindowManager {
   }
 
   private func display(for key: StripKey) -> Display? {
-    displays.first { $0.uuid == key.display }
+    if key.display == Display.spanID { return spanDisplay }
+    return displays.first { $0.uuid == key.display }
+  }
+
+  private var seams: [Double] {
+    spanParts.dropLast().map { Double($0.visibleFrame.maxX) }
+  }
+
+  private func revealScroll(_ strip: Strip, column index: Int, _ display: Display) -> Double {
+    let geometry = geometry(display)
+    let revealed = strip.revealScroll(column: index, mode: settings.centerMode, geometry)
+    guard display.isSpan, separateSpaces else { return revealed }
+    return strip.seamSafeSnapScroll(near: revealed, seams: seams, keepVisible: index, geometry)
+  }
+
+  private func band(_ display: Display) -> CGRect {
+    var band = display.visibleFrame
+    if settings.showBar && display.isPrimary { band.size.height -= BarMetrics.reserve }
+    return band
   }
 
   private func display(containing frame: CGRect) -> Display? {
@@ -890,7 +943,10 @@ public final class WindowManager {
   }
 
   private func context(_ display: Display) -> LayoutContext {
-    LayoutContext(
+    guard !display.isSpan else {
+      return LayoutContext(geometry: geometry(display), displayFrame: display.frame, otherDisplays: [], bands: spanParts.map(band))
+    }
+    return LayoutContext(
       geometry: geometry(display),
       displayFrame: display.frame,
       otherDisplays: displays.filter { $0.id != display.id }.map { DisplayArea(frame: $0.frame) }
@@ -918,9 +974,10 @@ public final class WindowManager {
       return
     }
     let focused = focusedManagedWindow()?.id
-    let groups = displays
+    let stripDisplays = spanDisplay.map { [$0] } ?? displays
       .filter { activeKeys[$0.uuid] != nil }
       .sorted { $0.frame.minX < $1.frame.minX }
+    let groups = stripDisplays
       .map { display in
         let strip = activeKeys[display.uuid].flatMap { strips[$0] } ?? Strip()
         let tiles = strip.windows.compactMap { id in
@@ -928,7 +985,7 @@ public final class WindowManager {
         }
         let minimized = minimizedIDs.sorted().compactMap { id -> BarTile? in
           guard let window = windows[id], let frame = AX.frame(window.element),
-            self.display(containing: frame)?.uuid == display.uuid
+            display.isSpan || self.display(containing: frame)?.uuid == display.uuid
           else { return nil }
           return BarTile(id: id, pid: window.pid, focused: false, minimized: true)
         }
@@ -946,7 +1003,7 @@ public final class WindowManager {
     guard let key = activeKey(containing: id), var strip = strips[key], let display = display(for: key) else { return }
     strip.focus(window: id)
     if let index = strip.focusedColumn {
-      strip.scroll = strip.revealScroll(column: index, mode: settings.centerMode, geometry(display))
+      strip.scroll = revealScroll(strip, column: index, display)
     }
     strips[key] = strip
     relayout(key, animated: true)
@@ -964,7 +1021,7 @@ public final class WindowManager {
     guard let display = display(for: sourceKey) else { return }
     strip.moveColumn(from: source, to: min(index, strip.columns.count - 1))
     if let focused = strip.focusedColumn {
-      strip.scroll = strip.revealScroll(column: focused, mode: settings.centerMode, geometry(display))
+      strip.scroll = revealScroll(strip, column: focused, display)
     }
     strips[sourceKey] = strip
     relayout(sourceKey, animated: true)

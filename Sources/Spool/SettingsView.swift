@@ -44,6 +44,12 @@ private struct GeneralTab: View {
       Toggle("Animate the strip", isOn: $store.settings.animate)
       Toggle("Show window bar at the bottom", isOn: $store.settings.showBar)
       Toggle("Smooth slides across screens (uses Screen Recording)", isOn: $store.settings.smoothSlides)
+      Toggle("One strip across all displays", isOn: $store.settings.spanDisplays)
+      if store.settings.spanDisplays && !store.settings.smoothSlides {
+        Text("macOS draws a window on one display at a time while “Displays have separate Spaces” is on. Turn on smooth slides so windows glide across the seam instead of jumping.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
       Picker("Centre focused window", selection: $store.settings.centerMode) {
         Text("Never").tag(CenterMode.never)
         Text("When it does not fit").tag(CenterMode.onOverflow)
