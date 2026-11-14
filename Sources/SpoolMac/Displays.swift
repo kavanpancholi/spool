@@ -8,6 +8,7 @@ public struct Display: Equatable {
   public let frame: CGRect
   public let visibleFrame: CGRect
   public let cocoaVisibleFrame: CGRect
+  public let scale: CGFloat
 
   public static func current() -> [Display] {
     guard let primaryHeight = NSScreen.screens.first?.frame.height else { return [] }
@@ -21,7 +22,8 @@ public struct Display: Equatable {
         name: screen.localizedName,
         frame: quartz(screen.frame, primaryHeight: primaryHeight),
         visibleFrame: quartz(screen.visibleFrame, primaryHeight: primaryHeight),
-        cocoaVisibleFrame: screen.visibleFrame
+        cocoaVisibleFrame: screen.visibleFrame,
+        scale: screen.backingScaleFactor
       )
     }
   }

@@ -739,7 +739,7 @@ public final class WindowManager {
       return
     }
     let unclipped = LayoutContext(geometry: geometry(display), displayFrame: display.frame, otherDisplays: [])
-    let frames = strip.layout(unclipped, scroll: scroll).compactMap { id, placement -> (id: WindowID, frame: CGRect, image: CGImage?)? in
+    let frames = strip.layout(unclipped, scroll: scroll).compactMap { id, placement -> (id: WindowID, frame: CGRect, snapshot: Snapshot?)? in
       guard placement.isVisible, windows[id] != nil else { return nil }
       return (id, placement.frame, snapshots.windows[id])
     }
@@ -774,7 +774,7 @@ public final class WindowManager {
     snapshotTimer?.invalidate()
     snapshotTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
       guard let self, self.isRunning, self.sliding.isEmpty else { return }
-      let ids = Set(self.activeKeys.values.flatMap { self.strips[$0]?.windows ?? [] })
+      let ids = Set(self.activeKeys.values.flatMap { self.strips[$0]?.windows ?? [] }).subtracting(self.fitted)
       let targets = ids.compactMap { id in self.windows[id]?.cgID.map { (id: id, cgID: $0) } }
       self.snapshots.refresh(targets, displays: self.displays)
     }

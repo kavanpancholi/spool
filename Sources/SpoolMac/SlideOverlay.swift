@@ -15,19 +15,20 @@ final class SlideOverlay {
     surfaces[display.uuid]?.window.isVisible == true
   }
 
-  func show(on display: Display, wallpaper: CGImage) {
+  func show(on display: Display, wallpaper: Snapshot) {
     let surface = surfaces[display.uuid] ?? Self.makeSurface()
     surface.window.setFrame(display.cocoaVisibleFrame, display: false)
     CATransaction.begin()
     CATransaction.setDisableActions(true)
     surface.root.frame = CGRect(origin: .zero, size: display.visibleFrame.size)
-    surface.root.contents = wallpaper
+    surface.root.contents = wallpaper.image
+    surface.root.contentsScale = wallpaper.scale
     CATransaction.commit()
     surface.window.orderFrontRegardless()
     surfaces[display.uuid] = surface
   }
 
-  func update(on display: Display, frames: [(id: WindowID, frame: CGRect, image: CGImage?)]) {
+  func update(on display: Display, frames: [(id: WindowID, frame: CGRect, snapshot: Snapshot?)]) {
     guard var surface = surfaces[display.uuid] else { return }
     let origin = display.visibleFrame.origin
     CATransaction.begin()
@@ -40,8 +41,9 @@ final class SlideOverlay {
     for entry in frames {
       let layer = surface.tiles[entry.id] ?? Self.makeTile(in: surface.root)
       layer.frame = entry.frame.offsetBy(dx: -origin.x, dy: -origin.y)
-      if let image = entry.image {
-        layer.contents = image
+      if let snapshot = entry.snapshot {
+        layer.contents = snapshot.image
+        layer.contentsScale = snapshot.scale
         layer.backgroundColor = nil
       } else {
         layer.contents = nil
@@ -82,9 +84,9 @@ final class SlideOverlay {
 
   private static func makeTile(in root: CALayer) -> CALayer {
     let layer = CALayer()
-    layer.contentsGravity = .resize
+    layer.contentsGravity = .topLeft
     layer.cornerRadius = 10
-    layer.masksToBounds = false
+    layer.masksToBounds = true
     root.addSublayer(layer)
     return layer
   }
