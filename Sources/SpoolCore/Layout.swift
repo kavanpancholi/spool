@@ -29,11 +29,23 @@ public struct LayoutContext: Equatable, Sendable {
   public var geometry: StripGeometry
   public var displayFrame: CGRect
   public var otherDisplays: [DisplayArea]
+  public var bands: [CGRect]
 
-  public init(geometry: StripGeometry, displayFrame: CGRect, otherDisplays: [DisplayArea]) {
+  public init(geometry: StripGeometry, displayFrame: CGRect, otherDisplays: [DisplayArea], bands: [CGRect] = []) {
     self.geometry = geometry
     self.displayFrame = displayFrame
     self.otherDisplays = otherDisplays
+    self.bands = bands
+  }
+
+  func verticalSpace(forColumnCenter x: Double) -> (top: Double, height: Double) {
+    let gap = geometry.outerGap
+    guard let band = bands.first(where: { x >= $0.minX && x < $0.maxX })
+      ?? bands.min(by: { abs($0.midX - x) < abs($1.midX - x) })
+    else {
+      return (geometry.viewport.minY + gap, geometry.usableHeight)
+    }
+    return (band.minY + gap, max(1, band.height - 2 * gap))
   }
 
   static let titleBarKeptOnScreen = 60.0
@@ -68,12 +80,13 @@ extension Strip {
       let width = geometry.points(forFraction: column.width).rounded()
       let x = (viewport.minX + lefts[index] - offset).rounded()
       let count = Double(column.windows.count)
-      let rowHeight = ((geometry.usableHeight - (count - 1) * geometry.innerGap) / count).rounded(.down)
-      let columnRect = CGRect(x: x, y: viewport.minY + geometry.outerGap, width: width, height: geometry.usableHeight)
+      let space = context.verticalSpace(forColumnCenter: x + width / 2)
+      let rowHeight = ((space.height - (count - 1) * geometry.innerGap) / count).rounded(.down)
+      let columnRect = CGRect(x: x, y: space.top, width: width, height: space.height)
       let park = x + width <= viewport.minX || x >= viewport.maxX || context.isMostlyOnOtherDisplay(columnRect)
 
       for (row, window) in column.windows.enumerated() {
-        var y = (viewport.minY + geometry.outerGap + Double(row) * (rowHeight + geometry.innerGap)).rounded()
+        var y = (space.top + Double(row) * (rowHeight + geometry.innerGap)).rounded()
         var height = rowHeight
         if let fixed = column.fixedHeight, fixed < rowHeight {
           y += ((rowHeight - fixed) / 2).rounded()

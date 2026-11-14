@@ -194,6 +194,36 @@ public struct Strip: Equatable, Sendable {
     return targets.min { abs($0 - clamped) < abs($1 - clamped) } ?? clamped
   }
 
+  public func straddles(seams: [Double], at scroll: Double, _ geometry: StripGeometry) -> Bool {
+    let lefts = columnLefts(geometry)
+    return columns.indices.contains { index in
+      let left = geometry.viewport.minX + lefts[index] - scroll
+      let right = left + geometry.points(forFraction: columns[index].width)
+      return seams.contains { left < $0 - 0.5 && right > $0 + 0.5 }
+    }
+  }
+
+  public func seamSafeSnapScroll(near value: Double, seams: [Double], keepVisible: Int?, _ geometry: StripGeometry) -> Double {
+    let upper = maxScroll(geometry)
+    let lefts = columnLefts(geometry)
+    var candidates = lefts.map { $0 - geometry.outerGap } + [0, upper]
+    for seam in seams {
+      for (index, left) in lefts.enumerated() {
+        let width = geometry.points(forFraction: columns[index].width)
+        candidates.append(geometry.viewport.minX + left - seam - geometry.innerGap / 2)
+        candidates.append(geometry.viewport.minX + left + width - seam + geometry.innerGap / 2)
+      }
+    }
+    let valid = candidates
+      .map { min(upper, max(0, $0)) }
+      .filter { !straddles(seams: seams, at: $0, geometry) }
+      .filter { scroll in keepVisible.map { fullyVisibleColumns(at: scroll, geometry).contains($0) } ?? true }
+    guard let best = valid.min(by: { abs($0 - value) < abs($1 - value) }) else {
+      return snapScroll(near: value, geometry)
+    }
+    return best
+  }
+
   public func fullyVisibleColumns(at scroll: Double, _ geometry: StripGeometry) -> [Int] {
     let lefts = columnLefts(geometry)
     return columns.indices.filter { index in
