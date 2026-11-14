@@ -194,12 +194,6 @@ public struct Strip: Equatable, Sendable {
     return targets.min { abs($0 - clamped) < abs($1 - clamped) } ?? clamped
   }
 
-  public func gentleSnapScroll(near value: Double, threshold: Double, _ geometry: StripGeometry) -> Double {
-    let clamped = min(maxScroll(geometry), max(0, value))
-    let snapped = snapScroll(near: clamped, geometry)
-    return abs(snapped - clamped) <= threshold ? snapped : clamped
-  }
-
   public func fullyVisibleColumns(at scroll: Double, _ geometry: StripGeometry) -> [Int] {
     let lefts = columnLefts(geometry)
     return columns.indices.filter { index in

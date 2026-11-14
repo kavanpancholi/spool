@@ -25,13 +25,23 @@ final class LayoutTests: XCTestCase {
     LayoutContext(geometry: geometry, displayFrame: display, otherDisplays: others)
   }
 
-  func test_column_parks_once_most_of_it_crosses_onto_any_other_display() {
+  func test_column_crossing_a_shared_left_edge_is_narrowed_to_its_own_display() {
     var strip = makeStrip(3)
-    let tallerOnLeft = DisplayArea(frame: CGRect(x: -1000, y: -100, width: 1000, height: 1000))
-    strip.scroll = 200
-    XCTAssertTrue(strip.layout(context([tallerOnLeft]))[1]!.isVisible)
     strip.scroll = 300
-    XCTAssertFalse(strip.layout(context([tallerOnLeft]))[1]!.isVisible)
+    let left = DisplayArea(frame: CGRect(x: -1000, y: -100, width: 1000, height: 1000))
+    XCTAssertEqual(strip.layout(context([left]))[1], .fitted(CGRect(x: 0, y: 40, width: 195, height: 780)))
+  }
+
+  func test_column_with_too_little_left_on_its_display_parks() {
+    var strip = makeStrip(3)
+    strip.scroll = 100
+    guard case .parked = strip.layout(context([shorterOnRight]))[3]! else { return XCTFail("expected parked") }
+  }
+
+  func test_free_edge_is_never_narrowed() {
+    var strip = makeStrip(3)
+    strip.scroll = 200
+    XCTAssertEqual(strip.layout(context())[3], .visible(CGRect(x: 800, y: 40, width: 485, height: 780)))
   }
 
   func test_offscreen_column_parks_in_bottom_right_corner() {
@@ -58,16 +68,12 @@ final class LayoutTests: XCTestCase {
     XCTAssertTrue(placements[3]!.isVisible)
   }
 
-  func test_column_spills_while_most_of_it_is_on_its_own_display() {
+  func test_column_crossing_a_shared_right_edge_is_narrowed() {
     var strip = makeStrip(3)
     strip.scroll = 300
-    XCTAssertTrue(strip.layout(context([shorterOnRight]))[3]!.isVisible)
-  }
-
-  func test_column_parks_once_most_of_it_would_be_on_another_display() {
-    var strip = makeStrip(3)
+    XCTAssertEqual(strip.layout(context([shorterOnRight]))[3], .fitted(CGRect(x: 700, y: 40, width: 300, height: 780)))
     strip.scroll = 200
-    XCTAssertFalse(strip.layout(context([shorterOnRight]))[3]!.isVisible)
+    XCTAssertEqual(strip.layout(context([shorterOnRight]))[3], .fitted(CGRect(x: 800, y: 40, width: 200, height: 780)))
   }
 
   func test_never_parks_where_another_display_would_catch_the_window() {
