@@ -19,10 +19,19 @@ final class LayoutTests: XCTestCase {
     XCTAssertEqual(placements[2], .visible(CGRect(x: 505, y: 40, width: 485, height: 780)))
   }
 
-  let shorterOnRight = CGRect(x: 1000, y: 200, width: 800, height: 630)
+  let shorterOnRight = DisplayArea(frame: CGRect(x: 1000, y: 200, width: 800, height: 630))
 
-  func context(_ others: [CGRect] = []) -> LayoutContext {
+  func context(_ others: [DisplayArea] = []) -> LayoutContext {
     LayoutContext(geometry: geometry, displayFrame: display, otherDisplays: others)
+  }
+
+  func test_column_spills_onto_a_display_tall_enough_to_hold_it() {
+    var strip = makeStrip(3)
+    strip.scroll = 300
+    let tallerOnLeft = DisplayArea(frame: CGRect(x: -1000, y: -100, width: 1000, height: 1000))
+    XCTAssertTrue(strip.layout(context([tallerOnLeft]))[1]!.isVisible)
+    let shorterOnLeft = DisplayArea(frame: CGRect(x: -1000, y: 200, width: 1000, height: 630))
+    XCTAssertFalse(strip.layout(context([shorterOnLeft]))[1]!.isVisible)
   }
 
   func test_offscreen_column_parks_in_bottom_right_corner() {
@@ -69,7 +78,7 @@ final class LayoutTests: XCTestCase {
   }
 
   func test_display_below_parks_on_free_side_edge() {
-    let below = CGRect(x: 0, y: 830, width: 1000, height: 800)
+    let below = DisplayArea(frame: CGRect(x: 0, y: 830, width: 1000, height: 800))
     guard case .parked(let frame) = makeStrip(3).layout(context([below]))[3] else { return XCTFail("expected parked") }
     XCTAssertEqual(frame.minX, 999)
     XCTAssertEqual(frame.minY, 40)

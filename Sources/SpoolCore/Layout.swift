@@ -17,12 +17,26 @@ public enum Placement: Equatable, Sendable {
   }
 }
 
+public struct DisplayArea: Equatable, Sendable {
+  public var frame: CGRect
+  public var visibleFrame: CGRect
+
+  public init(frame: CGRect, visibleFrame: CGRect? = nil) {
+    self.frame = frame
+    self.visibleFrame = visibleFrame ?? frame
+  }
+
+  func holdsVertically(_ rect: CGRect) -> Bool {
+    rect.minY >= visibleFrame.minY - 0.5 && rect.maxY <= visibleFrame.maxY + 0.5
+  }
+}
+
 public struct LayoutContext: Equatable, Sendable {
   public var geometry: StripGeometry
   public var displayFrame: CGRect
-  public var otherDisplays: [CGRect]
+  public var otherDisplays: [DisplayArea]
 
-  public init(geometry: StripGeometry, displayFrame: CGRect, otherDisplays: [CGRect]) {
+  public init(geometry: StripGeometry, displayFrame: CGRect, otherDisplays: [DisplayArea]) {
     self.geometry = geometry
     self.displayFrame = displayFrame
     self.otherDisplays = otherDisplays
@@ -30,9 +44,9 @@ public struct LayoutContext: Equatable, Sendable {
 
   static let titleBarKeptOnScreen = 60.0
 
-  func isMostlyOnOtherDisplay(_ rect: CGRect) -> Bool {
+  func wouldBeCapturedByOtherDisplay(_ rect: CGRect) -> Bool {
     let own = rect.intersection(displayFrame).area
-    return otherDisplays.contains { rect.intersection($0).area > own }
+    return otherDisplays.contains { rect.intersection($0.frame).area > own && !$0.holdsVertically(rect) }
   }
 
   func touchesOtherDisplay(_ rect: CGRect) -> Bool {
@@ -40,7 +54,7 @@ public struct LayoutContext: Equatable, Sendable {
     let clampedTop = min(rect.minY, displayFrame.maxY - Self.titleBarKeptOnScreen)
     reach.size.height += rect.minY - clampedTop
     reach.origin.y = clampedTop
-    return otherDisplays.contains { reach.intersection($0).area > 0 }
+    return otherDisplays.contains { reach.intersection($0.frame).area > 0 }
   }
 }
 
@@ -62,7 +76,7 @@ extension Strip {
       let count = Double(column.windows.count)
       let rowHeight = ((geometry.usableHeight - (count - 1) * geometry.innerGap) / count).rounded(.down)
       let columnRect = CGRect(x: x, y: viewport.minY + geometry.outerGap, width: width, height: geometry.usableHeight)
-      let park = x + width <= viewport.minX || x >= viewport.maxX || context.isMostlyOnOtherDisplay(columnRect)
+      let park = x + width <= viewport.minX || x >= viewport.maxX || context.wouldBeCapturedByOtherDisplay(columnRect)
 
       for (row, window) in column.windows.enumerated() {
         var y = (viewport.minY + geometry.outerGap + Double(row) * (rowHeight + geometry.innerGap)).rounded()
