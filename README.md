@@ -34,8 +34,8 @@ permission and starts as soon as you grant it.
 ## Mouse and trackpad
 
 - **Thumb wheel**: scrolls the strip under the pointer. Once you stop, the
-  strip eases to a window edge if one is close, then focuses the leftmost
-  fully visible window. The snap delay is in Settings. Hold ⌥ to scroll the app instead. Spreadsheets and design
+  strip eases to the nearest window edge, then focuses the leftmost fully
+  visible window. The snap delay is in Settings. Hold ⌥ to scroll the app instead. Spreadsheets and design
   tools can be added to a list where the thumb wheel always scrolls the app.
 - **Trackpad**: a three-finger (or four-finger) horizontal swipe moves the
   strip with your fingers. Turn off "Swipe between full-screen apps" for the
@@ -69,10 +69,10 @@ All use ⌃⌥ (Control-Option).
 - With Screen Recording allowed, the strip slides as one picture: Spool shows
   snapshots of the windows while it moves, clipped at each screen edge, then
   moves the real windows once it stops.
-- At an edge shared with another display, macOS clips a sliding window. Once
-  more than half of it would cross, Spool parks it. With "Displays have
-  separate Spaces" on (the macOS default), macOS draws a window on one display
-  only, so letting it cross further would make it jump screens.
+- At rest, a window that crosses an edge shared with another display is
+  narrowed to the part on its own display, so nothing jumps screens. With
+  "Displays have separate Spaces" on (the macOS default), macOS draws a window
+  on one display only. Under 120 points left, it parks instead.
 - After a scroll the strip glides to the nearest window edge and focuses the
   leftmost window that is fully on screen.
 - Each display, and each macOS Space, has its own strip. Drag a window onto
