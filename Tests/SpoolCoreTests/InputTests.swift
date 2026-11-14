@@ -62,4 +62,11 @@ final class InputTests: XCTestCase {
     let keys = Shortcut.defaults.map { "\($0.keyCode)-\($0.modifiers.rawValue)" }
     XCTAssertEqual(keys.count, Set(keys).count)
   }
+
+  func test_settings_from_version_one_get_the_slower_snap_delay() throws {
+    let old = #"{"thumbWheel": {"snapDelay": 0.18}}"#
+    XCTAssertEqual(try JSONDecoder().decode(SpoolSettings.self, from: Data(old.utf8)).thumbWheel.snapDelay, 0.45)
+    let current = #"{"version": 2, "thumbWheel": {"snapDelay": 0.2}}"#
+    XCTAssertEqual(try JSONDecoder().decode(SpoolSettings.self, from: Data(current.utf8)).thumbWheel.snapDelay, 0.2)
+  }
 }

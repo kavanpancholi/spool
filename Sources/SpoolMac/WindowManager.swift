@@ -322,15 +322,23 @@ public final class WindowManager {
       guard let frame = AX.frame(element) else { return .notYet }
       return frame.width >= 40 && frame.height >= 40 ? .tile : .never
     }
-    guard let role: String = AX.value(element, kAXRoleAttribute), let subrole: String = AX.value(element, kAXSubroleAttribute) else {
-      return .notYet
+    let traits = WindowTraits(
+      role: AX.value(element, kAXRoleAttribute),
+      subrole: AX.value(element, kAXSubroleAttribute),
+      identifier: AX.value(element, kAXIdentifierAttribute),
+      hasCloseButton: AX.has(element, kAXCloseButtonAttribute),
+      hasMinimizeButton: AX.has(element, kAXMinimizeButtonAttribute),
+      isResizable: AX.isSettable(element, kAXSizeAttribute),
+      isMovable: AX.isSettable(element, kAXPositionAttribute),
+      isMinimized: AX.bool(element, kAXMinimizedAttribute),
+      isFullScreen: AX.bool(element, "AXFullScreen"),
+      size: AX.frame(element)?.size
+    )
+    switch WindowRules.decide(traits) {
+    case .tile: return .tile
+    case .float: return .never
+    case .notYet: return .notYet
     }
-    guard role == kAXWindowRole, subrole == kAXStandardWindowSubrole else { return .never }
-    if AX.bool(element, kAXMinimizedAttribute) || AX.bool(element, "AXFullScreen") { return .never }
-    guard AX.isSettable(element, kAXSizeAttribute), AX.isSettable(element, kAXPositionAttribute) else { return .never }
-    guard let frame = AX.frame(element) else { return .notYet }
-    guard frame.width >= 80, frame.height >= 60 else { return .never }
-    return .tile
   }
 
   private func addWindow(_ element: AXUIElement, pid: pid_t, attempt: Int) {
@@ -596,6 +604,7 @@ public final class WindowManager {
     }
     lastManualScroll = Date()
     var spring = springs[key] ?? Spring(position: strip.scroll)
+    spring.setStiffness(900)
     let target = strip.clampedScroll(spring.target + delta, geometry(display))
     strip.scroll = target
     strips[key] = strip
@@ -643,7 +652,7 @@ public final class WindowManager {
   private func settle(_ key: StripKey, snap: Bool) {
     guard var strip = strips[key], let display = display(for: key) else { return }
     let geometry = geometry(display)
-    if snap { strip.scroll = strip.snapScroll(near: strip.scroll, geometry) }
+    if snap { strip.scroll = strip.gentleSnapScroll(near: strip.scroll, threshold: geometry.viewport.width * 0.15, geometry) }
     var focusTarget: WindowID?
     if let leftmost = strip.leftmostVisibleColumn(at: strip.scroll, geometry), leftmost != strip.focusedColumn {
       strip.focusedColumn = leftmost
@@ -651,15 +660,15 @@ public final class WindowManager {
     }
     strips[key] = strip
     lastManualScroll = Date()
-    relayout(key, animated: true)
+    relayout(key, animated: true, soft: true)
     if let focusTarget { focus(focusTarget) }
   }
 
-
-  private func relayout(_ key: StripKey, animated: Bool) {
+  private func relayout(_ key: StripKey, animated: Bool, soft: Bool = false) {
     guard let strip = strips[key] else { return }
     scheduleBarRefresh()
     if animated && settings.animate, var spring = springs[key] {
+      spring.setStiffness(soft ? 220 : 900)
       spring.target = strip.scroll
       springs[key] = spring
       apply(key, scroll: spring.position)
@@ -772,7 +781,7 @@ public final class WindowManager {
     LayoutContext(
       geometry: geometry(display),
       displayFrame: display.frame,
-      otherDisplays: displays.filter { $0.id != display.id }.map(\.frame)
+      otherDisplays: displays.filter { $0.id != display.id }.map { DisplayArea(frame: $0.frame, visibleFrame: $0.visibleFrame) }
     )
   }
 

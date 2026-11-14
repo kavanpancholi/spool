@@ -30,6 +30,11 @@ public struct Spring: Equatable, Sendable {
     }
   }
 
+  public mutating func setStiffness(_ value: Double) {
+    stiffness = value
+    damping = 2 * value.squareRoot()
+  }
+
   public mutating func jump(to value: Double) {
     position = value
     target = value

@@ -25,7 +25,7 @@ public struct ThumbWheelSettings: Codable, Equatable, Sendable {
     "com.figma.Desktop",
   ]
   public var snapToColumns = true
-  public var snapDelay = 0.18
+  public var snapDelay = 0.45
 
   public init() {}
 
@@ -59,6 +59,9 @@ public struct TrackpadSettings: Codable, Equatable, Sendable {
 }
 
 public struct SpoolSettings: Codable, Equatable, Sendable {
+  public static let currentVersion = 2
+
+  public var version = SpoolSettings.currentVersion
   public var enabled = true
   public var innerGap = 8.0
   public var outerGap = 8.0
@@ -89,6 +92,11 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
     trackpad = try c.decodeIfPresent(TrackpadSettings.self, forKey: .trackpad) ?? defaults.trackpad
     floatingBundleIDs = try c.decodeIfPresent([String].self, forKey: .floatingBundleIDs) ?? defaults.floatingBundleIDs
     excludedDisplayIDs = try c.decodeIfPresent([String].self, forKey: .excludedDisplayIDs) ?? defaults.excludedDisplayIDs
+    let savedVersion = try c.decodeIfPresent(Int.self, forKey: .version) ?? 1
+    if savedVersion < 2 {
+      thumbWheel.snapDelay = max(thumbWheel.snapDelay, defaults.thumbWheel.snapDelay)
+    }
+    version = Self.currentVersion
   }
 
   public var sanitizedWidthPresets: [Double] {

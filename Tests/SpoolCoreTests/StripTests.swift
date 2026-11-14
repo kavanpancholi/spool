@@ -202,4 +202,11 @@ final class StripTests: XCTestCase {
     XCTAssertEqual(strip.windows, [1, 9, 2])
     XCTAssertEqual(strip.focusedWindow, 9)
   }
+
+  func test_gentle_snap_only_pulls_when_an_edge_is_close() {
+    let strip = makeStrip(4)
+    XCTAssertEqual(strip.gentleSnapScroll(near: 400, threshold: 150, geometry), 495, accuracy: 0.001)
+    XCTAssertEqual(strip.gentleSnapScroll(near: 250, threshold: 150, geometry), 250, accuracy: 0.001)
+    XCTAssertEqual(strip.gentleSnapScroll(near: -40, threshold: 150, geometry), 0, accuracy: 0.001)
+  }
 }

@@ -71,6 +71,10 @@ private struct InputTab: View {
           Text("⌃ Control").tag(ModifierKey.control)
         }
         Toggle("Snap to the nearest window", isOn: $store.settings.thumbWheel.snapToColumns)
+        LabeledContent("Snap delay: \(String(format: "%.2f", store.settings.thumbWheel.snapDelay))s") {
+          Slider(value: $store.settings.thumbWheel.snapDelay, in: 0.15...1.5)
+        }
+        .disabled(!store.settings.thumbWheel.snapToColumns)
       } header: {
         Text("Mouse thumb wheel")
       } footer: {
