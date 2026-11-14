@@ -13,11 +13,12 @@ final class Snapshots {
   private(set) var wallpapers: [String: Snapshot] = [:]
   private var capturing = false
   private var requestedPermission = false
+  private var gaveUp = false
   private let log = Logger(subsystem: "io.github.kavanpancholi.spool", category: "snapshots")
 
   var isAvailable: Bool {
-    if #available(macOS 14, *) { return CGPreflightScreenCaptureAccess() }
-    return false
+    guard #available(macOS 14, *), !gaveUp else { return false }
+    return CGPreflightScreenCaptureAccess()
   }
 
   func requestPermissionOnce() {
@@ -33,6 +34,7 @@ final class Snapshots {
   func clear() {
     windows.removeAll()
     wallpapers.removeAll()
+    gaveUp = false
   }
 
   func refresh(_ targets: [(id: WindowID, cgID: CGWindowID)], displays: [Display]) {
@@ -41,6 +43,10 @@ final class Snapshots {
     Task { @MainActor [weak self] in
       let (windows, wallpapers) = await Self.capture(targets, displays: displays)
       guard let self else { return }
+      if windows.isEmpty && wallpapers.isEmpty && !targets.isEmpty {
+        self.gaveUp = true
+        self.log.error("Snapshots failed; smooth slides are off until Spool restarts")
+      }
       self.windows.merge(windows) { _, new in new }
       self.wallpapers.merge(wallpapers) { _, new in new }
       self.capturing = false
