@@ -28,8 +28,9 @@ make run    # builds build/Spool.app and opens it
 make install  # copies it to ~/Applications
 ```
 
-Spool lives in the menu bar. On first launch it asks for Accessibility
-permission and starts as soon as you grant it.
+Spool lives in the menu bar. On launch it shows a permissions window with a
+live tick or cross for Accessibility and Screen Recording, and keeps it open
+until both are granted. Spool starts on its own once they are.
 
 ## Mouse and trackpad
 

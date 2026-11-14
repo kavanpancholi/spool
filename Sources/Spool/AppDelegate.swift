@@ -10,8 +10,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var statusItem: NSStatusItem!
   private var menu = NSMenu()
   private var settingsWindow: NSWindow?
-  private var onboardingWindow: NSWindow?
+  private var permissionsWindow: NSWindow?
   private var permissionTimer: Timer?
+  private let permissions = PermissionsModel()
   private var signalSources: [DispatchSourceSignal] = []
 
   func applicationDidFinishLaunching(_ notification: Notification) {
@@ -28,12 +29,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     statusItem.button?.target = self
     statusItem.button?.action = #selector(openMenu)
     statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+    permissions.needsScreenRecording = { [store] in
+      if #available(macOS 14, *) { return store.settings.smoothSlides }
+      return false
+    }
     rebuildMenu()
 
-    if AXIsProcessTrusted() {
+    if permissions.allGranted {
       if store.settings.enabled { manager.start() }
     } else {
-      showOnboarding()
+      showPermissions()
     }
   }
 
@@ -71,7 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     state.isEnabled = false
     menu.addItem(state)
 
-    if AXIsProcessTrusted() {
+    if permissions.allGranted {
       let toggle = NSMenuItem(title: running ? "Pause Spool" : "Start Spool", action: #selector(toggleEnabled), keyEquivalent: "q")
       toggle.keyEquivalentModifierMask = [.control, .option]
       toggle.target = self
@@ -81,7 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       rearrange.isEnabled = running
       menu.addItem(rearrange)
     } else {
-      let permission = NSMenuItem(title: "Grant Accessibility Permission…", action: #selector(showOnboardingAction), keyEquivalent: "")
+      let permission = NSMenuItem(title: "Permissions…", action: #selector(showPermissionsAction), keyEquivalent: "")
       permission.target = self
       menu.addItem(permission)
     }
@@ -126,36 +131,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     settingsWindow?.makeKeyAndOrderFront(nil)
   }
 
-  @objc private func showOnboardingAction() {
-    showOnboarding()
+  @objc private func showPermissionsAction() {
+    showPermissions()
   }
 
-  private func showOnboarding() {
-    if onboardingWindow == nil {
-      let view = OnboardingView {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        AXIsProcessTrustedWithOptions(options)
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-          NSWorkspace.shared.open(url)
-        }
-      }
+  private func showPermissions() {
+    if permissionsWindow == nil {
+      let view = PermissionsView(model: permissions) { [weak self] in self?.restart() }
       let window = NSWindow(contentViewController: NSHostingController(rootView: view))
-      window.title = "Welcome to Spool"
+      window.title = "Spool Permissions"
       window.styleMask = [.titled, .closable]
       window.isReleasedWhenClosed = false
       window.center()
-      onboardingWindow = window
+      permissionsWindow = window
     }
     NSApp.activate(ignoringOtherApps: true)
-    onboardingWindow?.makeKeyAndOrderFront(nil)
+    permissionsWindow?.makeKeyAndOrderFront(nil)
 
     permissionTimer?.invalidate()
     permissionTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
-      guard AXIsProcessTrusted(), let self else { return }
+      guard let self else { return }
+      self.permissions.refresh()
+      guard self.permissions.allGranted else {
+        if self.permissionsWindow?.isVisible == false { self.permissionsWindow?.orderFrontRegardless() }
+        return
+      }
       timer.invalidate()
-      self.onboardingWindow?.close()
+      self.permissionsWindow?.close()
       self.rebuildMenu()
-      if self.store.settings.enabled { self.manager.start() }
+      if self.store.settings.enabled && !self.manager.isRunning { self.manager.start() }
     }
+  }
+
+  private func restart() {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/bin/sh")
+    process.arguments = ["-c", "sleep 1; /usr/bin/open \"$0\"", Bundle.main.bundlePath]
+    try? process.run()
+    NSApp.terminate(nil)
   }
 }
