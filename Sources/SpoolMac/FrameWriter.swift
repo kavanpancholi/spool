@@ -76,14 +76,12 @@ final class FrameWriter {
       for (id, job) in batch {
         let old = previous[id]
         let resized = old?.size != job.frame.size
-        if resized {
-          AX.setSize(job.element, job.frame.size)
-        }
         if old?.origin != job.frame.origin || resized {
           AX.setPosition(job.element, job.frame.origin)
         }
         if resized {
           AX.setSize(job.element, job.frame.size)
+          AX.setPosition(job.element, job.frame.origin)
         }
         lock.lock()
         written[id] = job.frame
