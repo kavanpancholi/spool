@@ -15,6 +15,8 @@ final class FrameWriter {
   private var written: [WindowID: CGRect] = [:]
   private var lastWrite: [WindowID: Date] = [:]
   private var thread: Thread?
+  private var working = false
+  private var idleCallbacks: [() -> Void] = []
 
   init() {
     let thread = Thread { [weak self] in self?.run() }
@@ -46,6 +48,14 @@ final class FrameWriter {
     lock.unlock()
   }
 
+  func whenIdle(_ callback: @escaping () -> Void) {
+    lock.lock()
+    let idle = pending.isEmpty && !working
+    if !idle { idleCallbacks.append(callback) }
+    lock.unlock()
+    if idle { DispatchQueue.main.async(execute: callback) }
+  }
+
   func isBusy(_ id: WindowID, within interval: TimeInterval) -> Bool {
     lock.lock()
     defer { lock.unlock() }
@@ -61,6 +71,7 @@ final class FrameWriter {
       let batch = pending
       pending.removeAll()
       let previous = written
+      working = !batch.isEmpty
       lock.unlock()
       guard !batch.isEmpty else { continue }
 
@@ -92,6 +103,13 @@ final class FrameWriter {
       for app in enhancedApps.values {
         AX.set(app, "AXEnhancedUserInterface", true)
       }
+
+      lock.lock()
+      working = false
+      let callbacks = pending.isEmpty ? idleCallbacks : []
+      if pending.isEmpty { idleCallbacks.removeAll() }
+      lock.unlock()
+      callbacks.forEach { callback in DispatchQueue.main.async(execute: callback) }
     }
   }
 }
