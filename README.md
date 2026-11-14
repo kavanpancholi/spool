@@ -32,7 +32,7 @@ permission and starts as soon as you grant it.
 ## Mouse and trackpad
 
 - **Thumb wheel**: scrolls the strip under the pointer, then snaps to the
-  nearest window. Hold ⌥ to scroll the app instead. Spreadsheets and design
+  nearest window and focuses the leftmost one. Hold ⌥ to scroll the app instead. Spreadsheets and design
   tools can be added to a list where the thumb wheel always scrolls the app.
 - **Trackpad**: a three-finger (or four-finger) horizontal swipe moves the
   strip with your fingers. Turn off "Swipe between full-screen apps" for the
@@ -61,8 +61,11 @@ All use ⌃⌥ (Control-Option).
 
 ## How it works
 
-- Off-screen windows are parked at the screen edge with a 1-point sliver
-  showing. Spool never minimises or hides them.
+- Off-screen windows are parked in the bottom corner on the side they left,
+  with 1 pixel on screen. Spool never minimises or hides them.
+- Windows slide past an edge shared with another display while they move.
+- After a scroll the strip glides to the nearest window edge and focuses the
+  leftmost window that is fully on screen.
 - Each display, and each macOS Space, has its own strip.
 - Dialogs, sheets, fixed-size windows and apps on your float list float.
   Native full-screen windows are left alone.
