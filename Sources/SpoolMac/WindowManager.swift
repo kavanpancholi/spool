@@ -16,13 +16,15 @@ final class ManagedWindow {
   let pid: pid_t
   let bundleID: String?
   let cgID: CGWindowID?
+  let isPrompt: Bool
 
-  init(id: WindowID, element: AXUIElement, pid: pid_t, bundleID: String?, cgID: CGWindowID?) {
+  init(id: WindowID, element: AXUIElement, pid: pid_t, bundleID: String?, cgID: CGWindowID?, isPrompt: Bool) {
     self.id = id
     self.element = element
     self.pid = pid
     self.bundleID = bundleID
     self.cgID = cgID
+    self.isPrompt = isPrompt
   }
 }
 
@@ -72,7 +74,7 @@ public final class WindowManager {
     input.onWheel = { [weak self] delta, point in self?.wheel(delta, at: point) ?? false }
     input.onSwipe = { [weak self] phase, point in self?.swipe(phase, at: point) }
     bars.onSelect = { [weak self] id in self?.reveal(id) }
-    bars.onMove = { [weak self] id, index in self?.moveTile(id, to: index) }
+    bars.onMove = { [weak self] id, display, index in self?.moveTile(id, toDisplay: display, index: index) }
     bars.label = { [weak self] id in self?.label(for: id) ?? "" }
     store.$settings
       .dropFirst()
@@ -92,11 +94,10 @@ public final class WindowManager {
       log.error("Event tap could not start; thumb wheel and swipes are off")
     }
     observeWorkspace()
-    for app in NSWorkspace.shared.runningApplications where app.activationPolicy == .regular {
+    for app in NSWorkspace.shared.runningApplications where Self.isManageable(app) {
       track(app, discover: false)
     }
     rebuild(resetOrder: true)
-    NSWorkspace.shared.runningApplications.filter(Self.isSystemPrompt).forEach(Self.bringToFront)
     displayWatch = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
       guard let self, Display.current() != self.displays else { return }
       self.scheduleRebuild(after: 0.1)
@@ -239,11 +240,7 @@ public final class WindowManager {
     }
     on(center, NSWorkspace.didLaunchApplicationNotification) { [weak self] note in
       guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
-      if Self.isSystemPrompt(app) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { Self.bringToFront(app) }
-      } else if app.activationPolicy == .regular {
-        self?.track(app, discover: true)
-      }
+      if Self.isManageable(app) { self?.track(app, discover: true) }
     }
     on(center, NSWorkspace.didTerminateApplicationNotification) { [weak self] note in
       guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
@@ -291,12 +288,14 @@ public final class WindowManager {
 
   private func register(_ element: AXUIElement, pid: pid_t) -> ManagedWindow {
     if let existing = lookup(element, pid: pid) { return existing }
+    let app = NSRunningApplication(processIdentifier: pid)
     let window = ManagedWindow(
       id: nextID,
       element: element,
       pid: pid,
-      bundleID: NSRunningApplication(processIdentifier: pid)?.bundleIdentifier,
-      cgID: AX.cgWindowID(element)
+      bundleID: app?.bundleIdentifier,
+      cgID: AX.cgWindowID(element),
+      isPrompt: app.map(Self.isSystemPrompt) ?? false
     )
     nextID += 1
     windows[window.id] = window
@@ -319,6 +318,10 @@ public final class WindowManager {
     if manuallyFloating.contains(window.id) { return .never }
     if let bundleID = window.bundleID, settings.floatingBundleIDs.contains(bundleID) { return .never }
     let element = window.element
+    if window.isPrompt {
+      guard let frame = AX.frame(element) else { return .notYet }
+      return frame.width >= 40 && frame.height >= 40 ? .tile : .never
+    }
     guard let role: String = AX.value(element, kAXRoleAttribute), let subrole: String = AX.value(element, kAXSubroleAttribute) else {
       return .notYet
     }
@@ -363,15 +366,23 @@ public final class WindowManager {
     else { return }
 
     let frontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier == pid
-    let focused = frontmost && focusedElement(of: pid).map { CFEqual($0, element) } == true
+    let focused = window.isPrompt || (frontmost && focusedElement(of: pid).map { CFEqual($0, element) } == true)
     var strip = strips[key] ?? Strip()
     let geometry = geometry(display)
-    strip.insert(window.id, width: min(1, max(0.1, geometry.fraction(forPoints: frame.width))), focus: focused)
+    strip.insert(window.id, width: columnWidth(frame, geometry), focus: focused)
+    if window.isPrompt, let index = strip.columnIndex(of: window.id) {
+      strip.columns[index].fixedHeight = frame.height
+    }
     if focused, let index = strip.focusedColumn {
       strip.scroll = strip.revealScroll(column: index, mode: settings.centerMode, geometry)
     }
     strips[key] = strip
     relayout(key, animated: true)
+    if window.isPrompt { focus(window.id) }
+  }
+
+  private func columnWidth(_ frame: CGRect, _ geometry: StripGeometry) -> Double {
+    min(1, max(0.1, geometry.fraction(forPoints: frame.width)))
   }
 
   private func removeWindow(_ id: WindowID) {
@@ -416,7 +427,7 @@ public final class WindowManager {
       activeKeys[display.uuid] = StripKey(display: display.uuid, space: Spaces.currentSpace(displayUUID: display.uuid))
     }
 
-    for app in NSWorkspace.shared.runningApplications where app.activationPolicy == .regular && observers[app.processIdentifier] == nil {
+    for app in NSWorkspace.shared.runningApplications where Self.isManageable(app) && observers[app.processIdentifier] == nil {
       track(app, discover: false)
     }
 
@@ -445,7 +456,10 @@ public final class WindowManager {
           other.remove(window.id)
           strips[otherKey] = other
         }
-        strip.append(window.id, width: min(1, max(0.1, geometry.fraction(forPoints: frame.width))))
+        strip.append(window.id, width: columnWidth(frame, geometry))
+        if window.isPrompt, let index = strip.columnIndex(of: window.id) {
+          strip.columns[index].fixedHeight = frame.height
+        }
       }
       if let focusedID, strip.contains(focusedID) { strip.focus(window: focusedID) }
       if let index = strip.focusedColumn {
@@ -515,7 +529,9 @@ public final class WindowManager {
     guard widthChanged || moved else { return }
 
     if moved, let landed = self.display(containing: actual), landed.uuid != display.uuid, let landedKey = activeKeys[landed.uuid] {
-      moveWindow(window.id, from: key, to: landedKey, droppedAt: actual)
+      moveWindow(window.id, from: key, to: landedKey, width: columnWidth(actual, geometry(landed))) {
+        $0.insertionIndex(forScreenX: actual.midX, $1)
+      }
       return
     }
 
@@ -524,7 +540,7 @@ public final class WindowManager {
     if attempts > 4 { return }
 
     if widthChanged, let index = strip.columnIndex(of: window.id) {
-      strip.columns[index].width = min(1, max(0.1, geometry(display).fraction(forPoints: actual.width)))
+      strip.columns[index].width = columnWidth(actual, geometry(display))
       strip.columns[index].widthBeforeFullWidth = nil
       strips[key] = strip
     }
@@ -532,8 +548,15 @@ public final class WindowManager {
     relayout(key, animated: false)
   }
 
-  private func moveWindow(_ id: WindowID, from sourceKey: StripKey, to targetKey: StripKey, droppedAt frame: CGRect) {
+  private func moveWindow(
+    _ id: WindowID,
+    from sourceKey: StripKey,
+    to targetKey: StripKey,
+    width: Double,
+    position: (Strip, StripGeometry) -> Int
+  ) {
     guard var source = strips[sourceKey], let sourceDisplay = display(for: sourceKey), let targetDisplay = display(for: targetKey) else { return }
+    let fixedHeight = source.columns.first { $0.windows.contains(id) }?.fixedHeight
     source.remove(id)
     if let index = source.focusedColumn {
       source.scroll = source.revealScroll(column: index, mode: settings.centerMode, geometry(sourceDisplay))
@@ -542,8 +565,8 @@ public final class WindowManager {
 
     let targetGeometry = geometry(targetDisplay)
     var target = strips[targetKey] ?? Strip()
-    let width = min(1, max(0.1, targetGeometry.fraction(forPoints: frame.width)))
-    target.insert(id, width: width, at: target.insertionIndex(forScreenX: frame.midX, targetGeometry))
+    target.insert(id, width: width, at: position(target, targetGeometry))
+    if let column = target.columnIndex(of: id) { target.columns[column].fixedHeight = fixedHeight }
     if let index = target.focusedColumn {
       target.scroll = target.revealScroll(column: index, mode: settings.centerMode, targetGeometry)
     }
@@ -774,14 +797,17 @@ public final class WindowManager {
       return
     }
     let focused = focusedManagedWindow()?.id
-    let entries = displays.filter(\.isPrimary).compactMap { display -> (display: Display, tiles: [BarTile])? in
-      guard let key = activeKeys[display.uuid], let strip = strips[key] else { return nil }
-      let tiles = strip.windows.compactMap { id in
-        windows[id].map { BarTile(id: id, pid: $0.pid, focused: id == focused) }
+    let groups = displays
+      .filter { activeKeys[$0.uuid] != nil }
+      .sorted { $0.frame.minX < $1.frame.minX }
+      .map { display in
+        let strip = activeKeys[display.uuid].flatMap { strips[$0] } ?? Strip()
+        let tiles = strip.windows.compactMap { id in
+          windows[id].map { BarTile(id: id, pid: $0.pid, focused: id == focused) }
+        }
+        return BarGroup(displayID: display.uuid, tiles: tiles)
       }
-      return (display, tiles)
-    }
-    bars.update(entries)
+    bars.update(on: displays.first(where: \.isPrimary), groups: groups)
   }
 
   private func reveal(_ id: WindowID) {
@@ -795,18 +821,21 @@ public final class WindowManager {
     focus(id)
   }
 
-  private func moveTile(_ id: WindowID, to tileIndex: Int) {
-    guard let key = activeKey(containing: id), var strip = strips[key], let display = display(for: key),
+  private func moveTile(_ id: WindowID, toDisplay displayID: String, index: Int) {
+    guard let sourceKey = activeKey(containing: id), let targetKey = activeKeys[displayID], var strip = strips[sourceKey],
       let source = strip.columnIndex(of: id)
     else { return }
-    let windowsInOrder = strip.windows
-    guard windowsInOrder.indices.contains(tileIndex), let destination = strip.columnIndex(of: windowsInOrder[tileIndex]) else { return }
-    strip.moveColumn(from: source, to: destination)
-    if let index = strip.focusedColumn {
-      strip.scroll = strip.revealScroll(column: index, mode: settings.centerMode, geometry(display))
+    guard sourceKey == targetKey else {
+      moveWindow(id, from: sourceKey, to: targetKey, width: strip.columns[source].width) { _, _ in index }
+      return
     }
-    strips[key] = strip
-    relayout(key, animated: true)
+    guard let display = display(for: sourceKey) else { return }
+    strip.moveColumn(from: source, to: index)
+    if let focused = strip.focusedColumn {
+      strip.scroll = strip.revealScroll(column: focused, mode: settings.centerMode, geometry(display))
+    }
+    strips[sourceKey] = strip
+    relayout(sourceKey, animated: true)
   }
 
   private func label(for id: WindowID) -> String {
@@ -828,10 +857,8 @@ public final class WindowManager {
     return app.executableURL?.lastPathComponent == "universalAccessAuthWarn"
   }
 
-  static func bringToFront(_ app: NSRunningApplication) {
-    let element = AXUIElementCreateApplication(app.processIdentifier)
-    AX.windows(of: element).forEach { AXUIElementPerformAction($0, kAXRaiseAction as CFString) }
-    app.activate(options: [])
+  static func isManageable(_ app: NSRunningApplication) -> Bool {
+    app.activationPolicy == .regular || isSystemPrompt(app)
   }
 
   static func quartzMouseLocation() -> CGPoint {
