@@ -57,6 +57,8 @@ public final class WindowManager {
   private var corrections: [WindowID: Int] = [:]
   private var parked: Set<WindowID> = []
   private var pendingFrameChecks: Set<WindowID> = []
+  private var draggedWindows: Set<WindowID> = []
+  private var minimizedIDs: Set<WindowID> = []
 
   private var animationTimer: Timer?
   private var lastTick = CACurrentMediaTime()
@@ -131,6 +133,8 @@ public final class WindowManager {
     parked.removeAll()
     corrections.removeAll()
     manuallyFloating.removeAll()
+    minimizedIDs.removeAll()
+    draggedWindows.removeAll()
     log.info("Spool stopped")
     onStateChange?()
   }
@@ -312,7 +316,7 @@ public final class WindowManager {
     }
   }
 
-  private enum Tileability { case tile, never, notYet }
+  private enum Tileability { case tile, never, notYet, minimized }
 
   private func tileability(_ window: ManagedWindow) -> Tileability {
     if manuallyFloating.contains(window.id) { return .never }
@@ -334,6 +338,11 @@ public final class WindowManager {
       isFullScreen: AX.bool(element, "AXFullScreen"),
       size: AX.frame(element)?.size
     )
+    if traits.isMinimized {
+      var restored = traits
+      restored.isMinimized = false
+      return WindowRules.decide(restored) == .tile ? .minimized : .never
+    }
     switch WindowRules.decide(traits) {
     case .tile: return .tile
     case .float: return .never
@@ -348,6 +357,10 @@ public final class WindowManager {
     switch tileability(window) {
     case .never:
       return
+    case .minimized:
+      minimizedIDs.insert(window.id)
+      scheduleBarRefresh()
+      return
     case .notYet:
       if attempt < 3 {
         DispatchQueue.main.asyncAfter(deadline: .now() + [0.1, 0.3, 0.8][attempt]) { [weak self] in
@@ -356,7 +369,7 @@ public final class WindowManager {
       }
       return
     case .tile:
-      break
+      minimizedIDs.remove(window.id)
     }
 
     if let cgID = window.cgID, !Spaces.onScreenWindowIDs().contains(cgID) {
@@ -403,6 +416,8 @@ public final class WindowManager {
       if activeKeys[key.display] == key { relayout(key, animated: true) }
     }
     windows[id] = nil
+    minimizedIDs.remove(id)
+    draggedWindows.remove(id)
     parked.remove(id)
     lastTargets[id] = nil
     corrections[id] = nil
@@ -444,9 +459,19 @@ public final class WindowManager {
     for (pid, observer) in observers {
       for element in AX.windows(of: observer.app) {
         let window = register(element, pid: pid)
-        guard tileability(window) == .tile else { continue }
+        switch tileability(window) {
+        case .tile:
+          minimizedIDs.remove(window.id)
+        case .minimized:
+          minimizedIDs.insert(window.id)
+          continue
+        case .never, .notYet:
+          continue
+        }
         if let cgID = window.cgID, !onScreen.isEmpty, !onScreen.contains(cgID) { continue }
-        guard let frame = AX.frame(element), let display = display(containing: frame), let key = activeKeys[display.uuid] else { continue }
+        guard let frame = AX.frame(element),
+          let key = activeKey(containing: window.id) ?? display(containing: frame).flatMap({ activeKeys[$0.uuid] })
+        else { continue }
         found[key, default: []].append((window, frame))
       }
     }
@@ -491,8 +516,13 @@ public final class WindowManager {
     case .moved, .resized:
       if let window = lookup(element, pid: pid) { frameChanged(window) }
     case .minimized:
-      if let window = lookup(element, pid: pid) { removeFromStrips(window.id) }
+      if let window = lookup(element, pid: pid) {
+        removeFromStrips(window.id)
+        minimizedIDs.insert(window.id)
+        scheduleBarRefresh()
+      }
     case .restored:
+      if let window = lookup(element, pid: pid) { minimizedIDs.remove(window.id) }
       addWindow(element, pid: pid, attempt: 0)
     }
   }
@@ -521,10 +551,12 @@ public final class WindowManager {
 
   private func frameChanged(_ window: ManagedWindow) {
     guard let key = activeKey(containing: window.id), lastTargets[window.id] != nil, !parked.contains(window.id) else { return }
+    if NSEvent.pressedMouseButtons != 0 { draggedWindows.insert(window.id) }
     if animationTimer != nil || writer.isBusy(window.id, within: 0.35) || NSEvent.pressedMouseButtons != 0 {
       deferFrameCheck(window)
       return
     }
+    let wasDragged = draggedWindows.remove(window.id) != nil
     guard var strip = strips[key], let display = display(for: key), let actual = AX.frame(window.element), let target = lastTargets[window.id] else {
       return
     }
@@ -536,7 +568,7 @@ public final class WindowManager {
     let moved = abs(actual.minX - target.minX) > 2 || abs(actual.minY - target.minY) > 2 || abs(actual.height - target.height) > 2
     guard widthChanged || moved else { return }
 
-    if moved, let landed = self.display(containing: actual), landed.uuid != display.uuid, let landedKey = activeKeys[landed.uuid] {
+    if moved, wasDragged, let landed = self.display(containing: actual), landed.uuid != display.uuid, let landedKey = activeKeys[landed.uuid] {
       moveWindow(window.id, from: key, to: landedKey, width: columnWidth(actual, geometry(landed))) {
         $0.insertionIndex(forScreenX: actual.midX, $1)
       }
@@ -812,14 +844,25 @@ public final class WindowManager {
       .map { display in
         let strip = activeKeys[display.uuid].flatMap { strips[$0] } ?? Strip()
         let tiles = strip.windows.compactMap { id in
-          windows[id].map { BarTile(id: id, pid: $0.pid, focused: id == focused) }
+          windows[id].map { BarTile(id: id, pid: $0.pid, focused: id == focused, minimized: false) }
         }
-        return BarGroup(displayID: display.uuid, tiles: tiles)
+        let minimized = minimizedIDs.sorted().compactMap { id -> BarTile? in
+          guard let window = windows[id], let frame = AX.frame(window.element),
+            self.display(containing: frame)?.uuid == display.uuid
+          else { return nil }
+          return BarTile(id: id, pid: window.pid, focused: false, minimized: true)
+        }
+        return BarGroup(displayID: display.uuid, tiles: tiles + minimized)
       }
     bars.update(on: displays.first(where: \.isPrimary), groups: groups)
   }
 
   private func reveal(_ id: WindowID) {
+    if minimizedIDs.contains(id), let window = windows[id] {
+      AX.set(window.element, kAXMinimizedAttribute, false)
+      focus(id)
+      return
+    }
     guard let key = activeKey(containing: id), var strip = strips[key], let display = display(for: key) else { return }
     strip.focus(window: id)
     if let index = strip.focusedColumn {
@@ -839,7 +882,7 @@ public final class WindowManager {
       return
     }
     guard let display = display(for: sourceKey) else { return }
-    strip.moveColumn(from: source, to: index)
+    strip.moveColumn(from: source, to: min(index, strip.columns.count - 1))
     if let focused = strip.focusedColumn {
       strip.scroll = strip.revealScroll(column: focused, mode: settings.centerMode, geometry(display))
     }

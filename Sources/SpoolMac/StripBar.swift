@@ -6,6 +6,7 @@ struct BarTile: Identifiable, Equatable {
   let id: WindowID
   let pid: pid_t
   let focused: Bool
+  let minimized: Bool
 }
 
 struct BarGroup: Equatable {
@@ -99,7 +100,8 @@ struct BarView: View {
             offset = 0
             guard drop.group != group || drop.index != index else { return }
             model.onMove(tile.id, model.groups[drop.group].displayID, drop.index)
-          }
+          },
+        including: tile.minimized ? .none : .all
       )
   }
 }
@@ -113,13 +115,14 @@ private struct TileView: View {
         .resizable()
         .interpolation(.high)
         .frame(width: BarMetrics.icon, height: BarMetrics.icon)
+        .opacity(tile.minimized ? 0.45 : 1)
         .background(
           RoundedRectangle(cornerRadius: 9, style: .continuous)
             .fill(Color.white.opacity(tile.focused ? 0.22 : 0))
             .padding(-3)
         )
       Circle()
-        .fill(tile.focused ? Color.white : Color.gray.opacity(0.7))
+        .fill(tile.minimized ? Color.clear : tile.focused ? Color.white : Color.gray.opacity(0.7))
         .frame(width: BarMetrics.dot, height: BarMetrics.dot)
     }
     .contentShape(Rectangle())
