@@ -31,8 +31,9 @@ permission and starts as soon as you grant it.
 
 ## Mouse and trackpad
 
-- **Thumb wheel**: scrolls the strip under the pointer, then snaps to the
-  nearest window and focuses the leftmost one. Hold ⌥ to scroll the app instead. Spreadsheets and design
+- **Thumb wheel**: scrolls the strip under the pointer. Once you stop, the
+  strip eases to a window edge if one is close, then focuses the leftmost
+  fully visible window. The snap delay is in Settings. Hold ⌥ to scroll the app instead. Spreadsheets and design
   tools can be added to a list where the thumb wheel always scrolls the app.
 - **Trackpad**: a three-finger (or four-finger) horizontal swipe moves the
   strip with your fingers. Turn off "Swipe between full-screen apps" for the
@@ -63,9 +64,9 @@ All use ⌃⌥ (Control-Option).
 
 - Off-screen windows are parked in a bottom corner, away from other
   displays. Spool never minimises or hides them.
-- A window slides past an edge shared with another display until most of it
-  would be on that display. Then it parks, because macOS would otherwise move
-  it onto that display and resize it.
+- A window slides past an edge shared with another display. It parks only
+  when most of it would sit on a display too short to hold it, because macOS
+  would otherwise move it there and shrink it.
 - After a scroll the strip glides to the nearest window edge and focuses the
   leftmost window that is fully on screen.
 - Each display, and each macOS Space, has its own strip. Drag a window onto
@@ -77,7 +78,8 @@ All use ⌃⌥ (Control-Option).
   the window, drag it to reorder, or drag it past the divider to move the
   window to another display. Hover for the title. Turn it off in
   Settings → General.
-- Dialogs, sheets, fixed-size windows and apps on your float list float.
+- Dialogs, open and save panels, fixed-size windows, windows without close
+  or minimise buttons, and apps on your float list float.
   Native full-screen windows are left alone.
 - When Spool quits it moves parked windows back on screen.
 
