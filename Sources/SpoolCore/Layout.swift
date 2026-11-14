@@ -53,10 +53,7 @@ extension Strip {
       let count = Double(column.windows.count)
       let rowHeight = ((geometry.usableHeight - (count - 1) * geometry.innerGap) / count).rounded(.down)
 
-      let entirelyOutside = x + width <= viewport.minX || x >= viewport.maxX
-      let crossesBlockedLeft = x < viewport.minX - 0.5 && context.neighbourEdges.contains(.left)
-      let crossesBlockedRight = x + width > viewport.maxX + 0.5 && context.neighbourEdges.contains(.right)
-      let park = entirelyOutside || crossesBlockedLeft || crossesBlockedRight
+      let park = x + width <= viewport.minX || x >= viewport.maxX
 
       for (row, window) in column.windows.enumerated() {
         let y = (viewport.minY + geometry.outerGap + Double(row) * (rowHeight + geometry.innerGap)).rounded()
@@ -75,18 +72,20 @@ extension Strip {
   private func parkedFrame(for frame: CGRect, preferLeft: Bool, _ context: LayoutContext) -> CGRect {
     let display = context.displayFrame
     let blocked = context.neighbourEdges
-    let sides: [Edges] = preferLeft ? [.left, .right] : [.right, .left]
     var parked = frame
 
-    for side in sides where !blocked.contains(side) {
+    func park(on side: Edges) {
       parked.origin.x = side == .left ? display.minX - frame.width + 1 : display.maxX - 1
-      return parked
     }
 
-    parked.origin.x = preferLeft ? display.minX - frame.width + 1 : display.maxX - 1
+    let preferred: Edges = preferLeft ? .left : .right
     if !blocked.contains(.bottom) {
+      park(on: preferred)
       parked.origin.y = display.maxY - 1
+      return parked
     }
+    let other: Edges = preferLeft ? .right : .left
+    park(on: blocked.contains(preferred) && !blocked.contains(other) ? other : preferred)
     return parked
   }
 }

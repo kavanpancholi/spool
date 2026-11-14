@@ -19,20 +19,22 @@ final class LayoutTests: XCTestCase {
     XCTAssertEqual(placements[2], .visible(CGRect(x: 505, y: 40, width: 485, height: 780)))
   }
 
-  func test_offscreen_column_parks_on_right_edge_with_sliver() {
+  func test_offscreen_column_parks_in_bottom_right_corner() {
     let strip = makeStrip(3)
     let placements = strip.layout(LayoutContext(geometry: geometry, displayFrame: display, neighbourEdges: []))
     guard case .parked(let frame) = placements[3] else { return XCTFail("expected parked") }
     XCTAssertEqual(frame.minX, 999)
+    XCTAssertEqual(frame.minY, 829)
     XCTAssertEqual(frame.width, 485)
   }
 
-  func test_parks_left_when_scrolled_past() {
+  func test_parks_in_bottom_left_corner_when_scrolled_past() {
     var strip = makeStrip(3)
     strip.scroll = strip.maxScroll(geometry)
     let placements = strip.layout(LayoutContext(geometry: geometry, displayFrame: display, neighbourEdges: []))
     guard case .parked(let frame) = placements[1] else { return XCTFail("expected parked") }
     XCTAssertEqual(frame.maxX, 1)
+    XCTAssertEqual(frame.minY, 829)
   }
 
   func test_partial_column_stays_visible_on_free_edge() {
@@ -43,20 +45,34 @@ final class LayoutTests: XCTestCase {
     XCTAssertTrue(placements[3]!.isVisible)
   }
 
-  func test_partial_column_parks_when_neighbour_display_on_that_side() {
+  func test_partial_column_spills_past_neighbour_display_edge() {
     var strip = makeStrip(3)
     strip.scroll = 200
     let placements = strip.layout(LayoutContext(geometry: geometry, displayFrame: display, neighbourEdges: [.right]))
-    XCTAssertTrue(placements[1]!.isVisible)
-    guard case .parked(let frame) = placements[3] else { return XCTFail("expected parked") }
-    XCTAssertEqual(frame.maxX, 1, "right is blocked, so it parks on the left")
+    XCTAssertTrue(placements[3]!.isVisible)
   }
 
-  func test_both_sides_blocked_parks_in_bottom_corner() {
+  func test_neighbour_on_the_right_still_parks_in_bottom_right_corner() {
     let strip = makeStrip(3)
-    let placements = strip.layout(LayoutContext(geometry: geometry, displayFrame: display, neighbourEdges: [.left, .right]))
+    let placements = strip.layout(LayoutContext(geometry: geometry, displayFrame: display, neighbourEdges: [.right]))
     guard case .parked(let frame) = placements[3] else { return XCTFail("expected parked") }
+    XCTAssertEqual(frame.minX, 999)
     XCTAssertEqual(frame.minY, 829)
+  }
+
+  func test_display_below_parks_on_free_side_edge() {
+    let strip = makeStrip(3)
+    let placements = strip.layout(LayoutContext(geometry: geometry, displayFrame: display, neighbourEdges: [.bottom]))
+    guard case .parked(let frame) = placements[3] else { return XCTFail("expected parked") }
+    XCTAssertEqual(frame.minX, 999)
+    XCTAssertEqual(frame.minY, 40)
+  }
+
+  func test_display_below_and_right_parks_on_left_edge() {
+    let strip = makeStrip(3)
+    let placements = strip.layout(LayoutContext(geometry: geometry, displayFrame: display, neighbourEdges: [.bottom, .right]))
+    guard case .parked(let frame) = placements[3] else { return XCTFail("expected parked") }
+    XCTAssertEqual(frame.maxX, 1)
   }
 
   func test_stacked_column_splits_height() {
