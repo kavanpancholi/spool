@@ -153,4 +153,17 @@ final class StripTests: XCTestCase {
     let lefts = strip.columnLefts(geometry)
     XCTAssertEqual(strip.columnNearestCenter(at: lefts[2] - 10, geometry), 2)
   }
+
+  func test_leftmost_fully_visible_column_after_scroll() {
+    let strip = makeStrip(4)
+    let lefts = strip.columnLefts(geometry)
+    XCTAssertEqual(strip.leftmostVisibleColumn(at: lefts[1] - 10, geometry), 1)
+    XCTAssertEqual(strip.leftmostVisibleColumn(at: lefts[1] - 10 + 50, geometry), 2)
+  }
+
+  func test_leftmost_visible_falls_back_when_column_wider_than_screen() {
+    var strip = makeStrip(2, width: 1)
+    strip.columns[0].width = 1
+    XCTAssertEqual(strip.leftmostVisibleColumn(at: 300, geometry), 0)
+  }
 }

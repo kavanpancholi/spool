@@ -577,10 +577,8 @@ public final class WindowManager {
     let geometry = geometry(display)
     if snap { strip.scroll = strip.snapScroll(near: strip.scroll, geometry) }
     var focusTarget: WindowID?
-    if let focused = strip.focusedColumn, !strip.fullyVisibleColumns(at: strip.scroll, geometry).contains(focused),
-      let nearest = strip.columnNearestCenter(at: strip.scroll, geometry)
-    {
-      strip.focusedColumn = nearest
+    if let leftmost = strip.leftmostVisibleColumn(at: strip.scroll, geometry), leftmost != strip.focusedColumn {
+      strip.focusedColumn = leftmost
       focusTarget = strip.focusedWindow
     }
     strips[key] = strip

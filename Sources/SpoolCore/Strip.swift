@@ -181,6 +181,10 @@ public struct Strip: Equatable, Sendable {
     }
   }
 
+  public func leftmostVisibleColumn(at scroll: Double, _ geometry: StripGeometry) -> Int? {
+    fullyVisibleColumns(at: scroll, geometry).first ?? columnNearestCenter(at: scroll, geometry)
+  }
+
   public func columnNearestCenter(at scroll: Double, _ geometry: StripGeometry) -> Int? {
     let lefts = columnLefts(geometry)
     let center = scroll + geometry.viewport.width / 2
