@@ -58,6 +58,7 @@ public final class WindowManager {
   private var lastTick = CACurrentMediaTime()
   private var snapTimers: [StripKey: Timer] = [:]
   private var rebuildTimer: Timer?
+  private var displayWatch: Timer?
   private var lastManualScroll = Date.distantPast
   private var workspaceTokens: [(NotificationCenter, NSObjectProtocol)] = []
   private var cancellables: Set<AnyCancellable> = []
@@ -90,6 +91,10 @@ public final class WindowManager {
       track(app, discover: false)
     }
     rebuild(resetOrder: true)
+    displayWatch = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+      guard let self, Display.current() != self.displays else { return }
+      self.scheduleRebuild(after: 0.1)
+    }
     log.info("Spool started with \(self.windows.count) windows")
     onStateChange?()
   }
@@ -103,6 +108,8 @@ public final class WindowManager {
     snapTimers.values.forEach { $0.invalidate() }
     snapTimers.removeAll()
     rebuildTimer?.invalidate()
+    displayWatch?.invalidate()
+    displayWatch = nil
     for (center, token) in workspaceTokens { center.removeObserver(token) }
     workspaceTokens.removeAll()
     unparkAll()
