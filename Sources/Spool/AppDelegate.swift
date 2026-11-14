@@ -35,11 +35,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     rebuildMenu()
 
-    if permissions.allGranted {
-      if store.settings.enabled { manager.start() }
-    } else {
-      showPermissions()
-    }
+    if permissions.accessibility && store.settings.enabled { manager.start() }
+    if !permissions.allGranted { showPermissions() }
   }
 
   func applicationWillTerminate(_ notification: Notification) {
@@ -76,7 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     state.isEnabled = false
     menu.addItem(state)
 
-    if permissions.allGranted {
+    if permissions.accessibility {
       let toggle = NSMenuItem(title: running ? "Pause Spool" : "Start Spool", action: #selector(toggleEnabled), keyEquivalent: "q")
       toggle.keyEquivalentModifierMask = [.control, .option]
       toggle.target = self
@@ -85,7 +82,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       rearrange.target = self
       rearrange.isEnabled = running
       menu.addItem(rearrange)
-    } else {
+    }
+    if !permissions.allGranted {
       let permission = NSMenuItem(title: "Permissions…", action: #selector(showPermissionsAction), keyEquivalent: "")
       permission.target = self
       menu.addItem(permission)
@@ -152,14 +150,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     permissionTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
       guard let self else { return }
       self.permissions.refresh()
-      guard self.permissions.allGranted else {
-        if self.permissionsWindow?.isVisible == false { self.permissionsWindow?.orderFrontRegardless() }
-        return
+      if self.permissions.accessibility && self.store.settings.enabled && !self.manager.isRunning {
+        self.manager.start()
+        self.rebuildMenu()
       }
+      guard self.permissions.allGranted || self.permissionsWindow?.isVisible == false else { return }
       timer.invalidate()
       self.permissionsWindow?.close()
       self.rebuildMenu()
-      if self.store.settings.enabled && !self.manager.isRunning { self.manager.start() }
     }
   }
 

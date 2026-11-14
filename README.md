@@ -17,8 +17,8 @@ the app under the pointer.
 
 - macOS 13 Ventura or later, Apple silicon
 - Accessibility permission (Spool moves windows and reads scroll and swipe input)
-- Screen Recording permission, optional: smooth slides across screens use
-  window snapshots while the strip moves
+- Screen Recording permission, only if you turn on smooth slides across
+  screens, which use window snapshots while the strip moves
 
 ## Build and run
 
@@ -28,9 +28,9 @@ make run    # builds build/Spool.app and opens it
 make install  # copies it to ~/Applications
 ```
 
-Spool lives in the menu bar. On launch it shows a permissions window with a
-live tick or cross for Accessibility and Screen Recording, and keeps it open
-until both are granted. Spool starts on its own once they are.
+Spool lives in the menu bar. It needs Accessibility, and starts on its own
+as soon as you grant it. Smooth slides across screens are off by default;
+turning them on in Settings also asks for Screen Recording.
 
 ## Mouse and trackpad
 

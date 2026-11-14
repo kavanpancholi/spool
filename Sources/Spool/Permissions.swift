@@ -58,7 +58,7 @@ struct PermissionsView: View {
           action: model.requestScreenRecording
         )
       }
-      Text("Spool starts on its own once every row has a tick. If a switch is already on in System Settings but the row still shows a cross, select Spool there, remove it with −, and add it again. Development builds count as a new app after each rebuild.")
+      Text("Spool starts on its own once Accessibility has a tick. If a switch is already on in System Settings but the row still shows a cross, select Spool there, remove it with −, and add it again. Development builds count as a new app after each rebuild.")
         .font(.callout)
         .foregroundStyle(.secondary)
         .fixedSize(horizontal: false, vertical: true)
