@@ -22,7 +22,9 @@ Spool ships in four phases. Each phase is usable on its own.
 - [ ] Launch at login
 - [ ] Menu bar item and settings window
 - [ ] Stop and start the window manager (⌃⌥Q)
-- [ ] Window bar at the bottom of each display: click to focus, drag to reorder, hover for title
+- [ ] Window bar at the bottom of the main display: click to focus, drag to reorder, hover for title
+- [ ] Drag a window to another display to move it to that strip
+- [ ] Keep macOS permission and password prompts in front
 
 ## Phase 2: columns
 

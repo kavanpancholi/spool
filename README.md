@@ -68,8 +68,11 @@ All use ⌃⌥ (Control-Option).
   it onto that display and resize it.
 - After a scroll the strip glides to the nearest window edge and focuses the
   leftmost window that is fully on screen.
-- Each display, and each macOS Space, has its own strip.
-- A bar at the bottom of each display shows that display's windows in strip
+- Each display, and each macOS Space, has its own strip. Drag a window onto
+  another display, or press ⌃⌥N, to move it to that display's strip.
+- macOS permission and password prompts are brought to the front so tiled
+  windows never hide them.
+- A bar at the bottom of the main display shows its windows in strip
   order. Click a tile to jump to the window, drag tiles to reorder, hover for
   the title. Turn it off in Settings → General.
 - Dialogs, sheets, fixed-size windows and apps on your float list float.
