@@ -3,12 +3,11 @@ import Foundation
 
 public enum Placement: Equatable, Sendable {
   case visible(CGRect)
-  case fitted(CGRect)
   case parked(CGRect)
 
   public var frame: CGRect {
     switch self {
-    case .visible(let frame), .fitted(let frame), .parked(let frame): frame
+    case .visible(let frame), .parked(let frame): frame
     }
   }
 
@@ -39,10 +38,9 @@ public struct LayoutContext: Equatable, Sendable {
 
   static let titleBarKeptOnScreen = 60.0
 
-  static let minimumFittedWidth = 120.0
-
-  func overlapsOtherDisplay(_ rect: CGRect) -> Bool {
-    otherDisplays.contains { rect.intersection($0.frame).area > 0 }
+  func isMostlyOnOtherDisplay(_ rect: CGRect) -> Bool {
+    let own = rect.intersection(displayFrame).area
+    return otherDisplays.contains { rect.intersection($0.frame).area > own }
   }
 
   func touchesOtherDisplay(_ rect: CGRect) -> Bool {
@@ -71,22 +69,8 @@ extension Strip {
       let x = (viewport.minX + lefts[index] - offset).rounded()
       let count = Double(column.windows.count)
       let rowHeight = ((geometry.usableHeight - (count - 1) * geometry.innerGap) / count).rounded(.down)
-      let top = viewport.minY + geometry.outerGap
-      var left = x
-      var right = x + width
-      if left < viewport.minX,
-        context.overlapsOtherDisplay(CGRect(x: left, y: top, width: viewport.minX - left, height: geometry.usableHeight))
-      {
-        left = viewport.minX
-      }
-      if right > viewport.maxX,
-        context.overlapsOtherDisplay(CGRect(x: viewport.maxX, y: top, width: right - viewport.maxX, height: geometry.usableHeight))
-      {
-        right = viewport.maxX
-      }
-      let fitted = left != x || right != x + width
-      let park = x + width <= viewport.minX || x >= viewport.maxX
-        || (fitted && right - left < LayoutContext.minimumFittedWidth)
+      let columnRect = CGRect(x: x, y: viewport.minY + geometry.outerGap, width: width, height: geometry.usableHeight)
+      let park = x + width <= viewport.minX || x >= viewport.maxX || context.isMostlyOnOtherDisplay(columnRect)
 
       for (row, window) in column.windows.enumerated() {
         var y = (viewport.minY + geometry.outerGap + Double(row) * (rowHeight + geometry.innerGap)).rounded()
@@ -98,8 +82,6 @@ extension Strip {
         let frame = CGRect(x: x, y: y, width: width, height: height)
         if park {
           result[window] = .parked(parkedFrame(for: frame, preferLeft: x + width / 2 < viewport.midX, context))
-        } else if fitted {
-          result[window] = .fitted(CGRect(x: left, y: y, width: right - left, height: height))
         } else {
           result[window] = .visible(frame)
         }
