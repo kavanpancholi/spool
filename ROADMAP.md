@@ -25,6 +25,7 @@ Spool ships in four phases. Each phase is usable on its own.
 - [ ] Window bar on the main display with every display's windows: click to focus, drag to reorder or move between displays, hover for title
 - [ ] Drag a window to another display to move it to that strip
 - [ ] macOS permission and password prompts get their own column
+- [ ] One strip across all side-by-side displays
 
 ## Phase 2: columns
 

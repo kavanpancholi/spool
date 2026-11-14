@@ -76,7 +76,11 @@ All use ⌃⌥ (Control-Option).
   window on one display only and would otherwise jump it across.
 - After a scroll the strip glides to the nearest window edge and focuses the
   leftmost window that is fully on screen.
-- Each display, and each macOS Space, has its own strip. Drag a window onto
+- Each display, and each macOS Space, has its own strip. Or turn on "One
+  strip across all displays" for a single strip over side-by-side screens.
+  With "Displays have separate Spaces" off, real windows slide over the seam.
+  With it on, smooth slides carry the motion and the strip never rests with a
+  window across the seam. Drag a window onto
   another display, or press ⌃⌥N, to move it to that display's strip.
 - macOS permission and password prompts get their own column next to the
   focused window, at their own size, so tiled windows never hide them.
