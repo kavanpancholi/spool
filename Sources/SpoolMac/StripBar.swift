@@ -8,32 +8,34 @@ struct BarTile: Identifiable, Equatable {
   let focused: Bool
 }
 
+struct BarGroup: Equatable {
+  let displayID: String
+  let tiles: [BarTile]
+}
+
 enum BarMetrics {
   static let icon: CGFloat = 34
   static let spacing: CGFloat = 6
   static let padding: CGFloat = 8
+  static let groupGap: CGFloat = 25
   static let dot: CGFloat = 4
   static let dotGap: CGFloat = 4
   static let margin: CGFloat = 6
   static let cornerRadius: CGFloat = 16
 
-  static var pillHeight: CGFloat { padding * 2 + icon + dotGap + dot }
+  static var tileHeight: CGFloat { icon + dotGap + dot }
+  static var pillHeight: CGFloat { padding * 2 + tileHeight }
   static var reserve: CGFloat { pillHeight + margin }
-  static var pitch: CGFloat { icon + spacing }
 
-  static func width(for count: Int) -> CGFloat {
-    padding * 2 + CGFloat(count) * icon + CGFloat(max(0, count - 1)) * spacing
-  }
-
-  static func tileCenter(_ index: Int) -> CGFloat {
-    padding + CGFloat(index) * pitch + icon / 2
+  static func layout(_ groups: [BarGroup]) -> BarLayout {
+    BarLayout(groupCounts: groups.map(\.tiles.count), icon: icon, spacing: spacing, groupGap: groupGap, padding: padding)
   }
 }
 
 final class BarModel: ObservableObject {
-  @Published var tiles: [BarTile] = []
+  @Published var groups: [BarGroup] = []
   var onSelect: (WindowID) -> Void = { _ in }
-  var onMove: (WindowID, Int) -> Void = { _, _ in }
+  var onMove: (WindowID, String, Int) -> Void = { _, _, _ in }
   var onHover: (WindowID?, CGFloat) -> Void = { _, _ in }
 }
 
@@ -43,39 +45,62 @@ struct BarView: View {
   @State private var offset: CGFloat = 0
 
   var body: some View {
-    HStack(spacing: BarMetrics.spacing) {
-      ForEach(Array(model.tiles.enumerated()), id: \.element.id) { index, tile in
-        TileView(tile: tile)
-          .offset(x: dragging == tile.id ? offset : 0)
-          .zIndex(dragging == tile.id ? 1 : 0)
-          .onHover { inside in
-            model.onHover(inside && dragging == nil ? tile.id : nil, BarMetrics.tileCenter(index))
-          }
-          .onTapGesture { model.onSelect(tile.id) }
-          .gesture(
-            DragGesture(minimumDistance: 5)
-              .onChanged { value in
-                dragging = tile.id
-                offset = value.translation.width
-                model.onHover(nil, 0)
-              }
-              .onEnded { value in
-                let steps = Int((value.translation.width / BarMetrics.pitch).rounded())
-                let target = min(model.tiles.count - 1, max(0, index + steps))
-                dragging = nil
-                offset = 0
-                if target != index { model.onMove(tile.id, target) }
-              }
-          )
-      }
-    }
-    .padding(BarMetrics.padding)
-    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: BarMetrics.cornerRadius, style: .continuous))
-    .overlay(
+    let layout = BarMetrics.layout(model.groups)
+    let tileY = BarMetrics.padding + BarMetrics.tileHeight / 2
+
+    ZStack(alignment: .topLeading) {
+      RoundedRectangle(cornerRadius: BarMetrics.cornerRadius, style: .continuous)
+        .fill(.ultraThinMaterial)
       RoundedRectangle(cornerRadius: BarMetrics.cornerRadius, style: .continuous)
         .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
-    )
-    .animation(.easeOut(duration: 0.15), value: model.tiles)
+
+      ForEach(Array(model.groups.indices.dropFirst()), id: \.self) { group in
+        Rectangle()
+          .fill(Color.white.opacity(0.25))
+          .frame(width: 1, height: BarMetrics.icon)
+          .position(x: (layout.groupBounds(group - 1).upperBound + layout.groupBounds(group).lowerBound) / 2, y: tileY - BarMetrics.dot)
+      }
+
+      ForEach(Array(model.groups.enumerated()), id: \.element.displayID) { group, entry in
+        if entry.tiles.isEmpty {
+          RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .strokeBorder(Color.white.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            .frame(width: BarMetrics.icon, height: BarMetrics.icon)
+            .position(x: layout.center(group: group, index: 0), y: tileY - BarMetrics.dot)
+        }
+        ForEach(Array(entry.tiles.enumerated()), id: \.element.id) { index, tile in
+          tileView(tile, group: group, index: index, layout: layout)
+            .position(x: layout.center(group: group, index: index) + (dragging == tile.id ? offset : 0), y: tileY)
+        }
+      }
+    }
+    .frame(width: layout.width, height: BarMetrics.pillHeight)
+    .animation(.easeOut(duration: 0.15), value: model.groups)
+  }
+
+  private func tileView(_ tile: BarTile, group: Int, index: Int, layout: BarLayout) -> some View {
+    let center = layout.center(group: group, index: index)
+    return TileView(tile: tile)
+      .zIndex(dragging == tile.id ? 1 : 0)
+      .onHover { inside in
+        model.onHover(inside && dragging == nil ? tile.id : nil, center)
+      }
+      .onTapGesture { model.onSelect(tile.id) }
+      .gesture(
+        DragGesture(minimumDistance: 5)
+          .onChanged { value in
+            dragging = tile.id
+            offset = value.translation.width
+            model.onHover(nil, 0)
+          }
+          .onEnded { value in
+            let drop = layout.drop(atX: center + value.translation.width, dragging: (group, index))
+            dragging = nil
+            offset = 0
+            guard drop.group != group || drop.index != index else { return }
+            model.onMove(tile.id, model.groups[drop.group].displayID, drop.index)
+          }
+      )
   }
 }
 
@@ -117,58 +142,50 @@ private struct TooltipView: View {
 
 final class BarController {
   var onSelect: (WindowID) -> Void = { _ in }
-  var onMove: (WindowID, Int) -> Void = { _, _ in }
+  var onMove: (WindowID, String, Int) -> Void = { _, _, _ in }
   var label: (WindowID) -> String = { _ in "" }
 
-  private var bars: [String: (panel: NSPanel, model: BarModel)] = [:]
-  private let tooltip = BarController.makePanel(ignoresMouse: true)
-
-  func update(_ entries: [(display: Display, tiles: [BarTile])]) {
-    let wanted = Set(entries.filter { !$0.tiles.isEmpty }.map(\.display.uuid))
-    for (uuid, bar) in bars where !wanted.contains(uuid) {
-      bar.panel.orderOut(nil)
-      bars[uuid] = nil
-    }
-    for (display, tiles) in entries where !tiles.isEmpty {
-      let bar = bars[display.uuid] ?? makeBar(for: display.uuid)
-      if bar.model.tiles != tiles { bar.model.tiles = tiles }
-      let width = BarMetrics.width(for: tiles.count)
-      let visible = display.cocoaVisibleFrame
-      let frame = NSRect(
-        x: (visible.midX - width / 2).rounded(),
-        y: visible.minY + BarMetrics.margin,
-        width: width,
-        height: BarMetrics.pillHeight
-      )
-      if bar.panel.frame != frame { bar.panel.setFrame(frame, display: true) }
-      if !bar.panel.isVisible { bar.panel.orderFrontRegardless() }
-    }
-  }
-
-  func hideAll() {
-    bars.values.forEach { $0.panel.orderOut(nil) }
-    bars.removeAll()
-    tooltip.orderOut(nil)
-  }
-
-  private func makeBar(for uuid: String) -> (panel: NSPanel, model: BarModel) {
-    let model = BarModel()
+  private let model = BarModel()
+  private lazy var panel: NSPanel = {
     let panel = Self.makePanel(ignoresMouse: false)
     panel.contentView = NSHostingView(rootView: BarView(model: model))
+    return panel
+  }()
+  private let tooltip = BarController.makePanel(ignoresMouse: true)
+
+  init() {
     model.onSelect = { [weak self] id in
       self?.tooltip.orderOut(nil)
       self?.onSelect(id)
     }
-    model.onMove = { [weak self] id, index in self?.onMove(id, index) }
-    model.onHover = { [weak self, weak panel] id, x in
-      guard let self, let panel else { return }
-      self.showTooltip(for: id, above: panel, atX: x)
-    }
-    bars[uuid] = (panel, model)
-    return (panel, model)
+    model.onMove = { [weak self] id, display, index in self?.onMove(id, display, index) }
+    model.onHover = { [weak self] id, x in self?.showTooltip(for: id, atX: x) }
   }
 
-  private func showTooltip(for id: WindowID?, above panel: NSPanel, atX x: CGFloat) {
+  func update(on display: Display?, groups: [BarGroup]) {
+    guard let display, groups.contains(where: { !$0.tiles.isEmpty }) else {
+      hideAll()
+      return
+    }
+    if model.groups != groups { model.groups = groups }
+    let width = BarMetrics.layout(groups).width
+    let visible = display.cocoaVisibleFrame
+    let frame = NSRect(
+      x: (visible.midX - width / 2).rounded(),
+      y: visible.minY + BarMetrics.margin,
+      width: width,
+      height: BarMetrics.pillHeight
+    )
+    if panel.frame != frame { panel.setFrame(frame, display: true) }
+    if !panel.isVisible { panel.orderFrontRegardless() }
+  }
+
+  func hideAll() {
+    panel.orderOut(nil)
+    tooltip.orderOut(nil)
+  }
+
+  private func showTooltip(for id: WindowID?, atX x: CGFloat) {
     guard let id else {
       tooltip.orderOut(nil)
       return
