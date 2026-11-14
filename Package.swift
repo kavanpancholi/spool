@@ -2,6 +2,8 @@
 
 import PackageDescription
 
+let appKitSettings: [SwiftSetting] = [.swiftLanguageMode(.v5)]
+
 let package = Package(
   name: "Spool",
   platforms: [.macOS(.v13)],
@@ -10,8 +12,8 @@ let package = Package(
   ],
   targets: [
     .target(name: "SpoolCore"),
-    .target(name: "SpoolMac", dependencies: ["SpoolCore"]),
-    .executableTarget(name: "Spool", dependencies: ["SpoolCore", "SpoolMac"]),
+    .target(name: "SpoolMac", dependencies: ["SpoolCore"], swiftSettings: appKitSettings),
+    .executableTarget(name: "Spool", dependencies: ["SpoolCore", "SpoolMac"], swiftSettings: appKitSettings),
     .testTarget(name: "SpoolCoreTests", dependencies: ["SpoolCore"]),
   ]
 )
