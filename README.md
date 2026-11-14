@@ -70,11 +70,13 @@ All use ⌃⌥ (Control-Option).
   leftmost window that is fully on screen.
 - Each display, and each macOS Space, has its own strip. Drag a window onto
   another display, or press ⌃⌥N, to move it to that display's strip.
-- macOS permission and password prompts are brought to the front so tiled
-  windows never hide them.
-- A bar at the bottom of the main display shows its windows in strip
-  order. Click a tile to jump to the window, drag tiles to reorder, hover for
-  the title. Turn it off in Settings → General.
+- macOS permission and password prompts get their own column next to the
+  focused window, at their own size, so tiled windows never hide them.
+- A bar at the bottom of the main display shows the windows of every
+  display, grouped in display order with a divider. Click a tile to jump to
+  the window, drag it to reorder, or drag it past the divider to move the
+  window to another display. Hover for the title. Turn it off in
+  Settings → General.
 - Dialogs, sheets, fixed-size windows and apps on your float list float.
   Native full-screen windows are left alone.
 - When Spool quits it moves parked windows back on screen.
