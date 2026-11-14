@@ -128,7 +128,7 @@ public final class WindowManager {
     displayWatch = nil
     for (center, token) in workspaceTokens { center.removeObserver(token) }
     workspaceTokens.removeAll()
-    unparkAll()
+    restoreAllWindows()
     bars.hideAll()
     overlay.hideAll()
     sliding.removeAll()
@@ -826,19 +826,29 @@ public final class WindowManager {
     }
   }
 
-  private func unparkAll() {
-    for (uuid, key) in activeKeys {
-      guard let strip = strips[key], let display = displays.first(where: { $0.uuid == uuid }) else { continue }
+  private func restoreAllWindows() {
+    writer.cancelPending()
+    for (key, strip) in strips {
+      guard let display = displays.first(where: { $0.uuid == key.display }) ?? displays.first else { continue }
       let visible = display.visibleFrame
-      for (id, placement) in strip.layout(context(display)) {
-        guard case .parked(let frame) = placement, let window = windows[id] else { continue }
-        let width = min(frame.width, visible.width)
-        let x = frame.midX < visible.midX ? visible.minX + settings.outerGap : visible.maxX - width - settings.outerGap
-        AX.setPosition(window.element, CGPoint(x: max(visible.minX, x), y: max(visible.minY, frame.minY)))
+      let gap = settings.outerGap
+      let geometry = StripGeometry(viewport: visible, innerGap: settings.innerGap, outerGap: gap)
+      for column in strip.columns {
+        let width = min(geometry.points(forFraction: column.width), visible.width - 2 * gap)
+        let rows = Double(column.windows.count)
+        let rowHeight = ((geometry.usableHeight - (rows - 1) * settings.innerGap) / rows).rounded(.down)
+        for (row, id) in column.windows.enumerated() {
+          guard let window = windows[id], let current = AX.frame(window.element) else { continue }
+          let height = column.fixedHeight.map { min($0, rowHeight) } ?? rowHeight
+          let x = min(max(current.minX, visible.minX + gap), visible.maxX - gap - width)
+          let y = visible.minY + gap + Double(row) * (rowHeight + settings.innerGap)
+          AX.setPosition(window.element, CGPoint(x: x, y: y))
+          AX.setSize(window.element, CGSize(width: width, height: height))
+          AX.setPosition(window.element, CGPoint(x: x, y: y))
+        }
       }
     }
   }
-
 
   private func focus(_ id: WindowID) {
     guard let window = windows[id] else { return }

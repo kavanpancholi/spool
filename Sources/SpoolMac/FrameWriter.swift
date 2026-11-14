@@ -34,6 +34,12 @@ final class FrameWriter {
     if !unchanged { wake.signal() }
   }
 
+  func cancelPending() {
+    lock.lock()
+    pending.removeAll()
+    lock.unlock()
+  }
+
   func forget(_ id: WindowID) {
     lock.lock()
     pending[id] = nil
