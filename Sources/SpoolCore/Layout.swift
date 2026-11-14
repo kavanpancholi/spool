@@ -1,16 +1,6 @@
 import CoreGraphics
 import Foundation
 
-public struct Edges: OptionSet, Hashable, Sendable {
-  public let rawValue: Int
-  public init(rawValue: Int) { self.rawValue = rawValue }
-
-  public static let left = Edges(rawValue: 1 << 0)
-  public static let right = Edges(rawValue: 1 << 1)
-  public static let top = Edges(rawValue: 1 << 2)
-  public static let bottom = Edges(rawValue: 1 << 3)
-}
-
 public enum Placement: Equatable, Sendable {
   case visible(CGRect)
   case parked(CGRect)
@@ -30,13 +20,32 @@ public enum Placement: Equatable, Sendable {
 public struct LayoutContext: Equatable, Sendable {
   public var geometry: StripGeometry
   public var displayFrame: CGRect
-  public var neighbourEdges: Edges
+  public var otherDisplays: [CGRect]
 
-  public init(geometry: StripGeometry, displayFrame: CGRect, neighbourEdges: Edges) {
+  public init(geometry: StripGeometry, displayFrame: CGRect, otherDisplays: [CGRect]) {
     self.geometry = geometry
     self.displayFrame = displayFrame
-    self.neighbourEdges = neighbourEdges
+    self.otherDisplays = otherDisplays
   }
+
+  static let titleBarKeptOnScreen = 60.0
+
+  func isMostlyOnOtherDisplay(_ rect: CGRect) -> Bool {
+    let own = rect.intersection(displayFrame).area
+    return otherDisplays.contains { rect.intersection($0).area > own }
+  }
+
+  func touchesOtherDisplay(_ rect: CGRect) -> Bool {
+    var reach = rect
+    let clampedTop = min(rect.minY, displayFrame.maxY - Self.titleBarKeptOnScreen)
+    reach.size.height += rect.minY - clampedTop
+    reach.origin.y = clampedTop
+    return otherDisplays.contains { reach.intersection($0).area > 0 }
+  }
+}
+
+extension CGRect {
+  var area: Double { isNull || isEmpty ? 0 : Double(width * height) }
 }
 
 extension Strip {
@@ -52,15 +61,14 @@ extension Strip {
       let x = (viewport.minX + lefts[index] - offset).rounded()
       let count = Double(column.windows.count)
       let rowHeight = ((geometry.usableHeight - (count - 1) * geometry.innerGap) / count).rounded(.down)
-
-      let park = x + width <= viewport.minX || x >= viewport.maxX
+      let columnRect = CGRect(x: x, y: viewport.minY + geometry.outerGap, width: width, height: geometry.usableHeight)
+      let park = x + width <= viewport.minX || x >= viewport.maxX || context.isMostlyOnOtherDisplay(columnRect)
 
       for (row, window) in column.windows.enumerated() {
         let y = (viewport.minY + geometry.outerGap + Double(row) * (rowHeight + geometry.innerGap)).rounded()
         let frame = CGRect(x: x, y: y, width: width, height: rowHeight)
         if park {
-          let preferLeft = x + width / 2 < viewport.midX
-          result[window] = .parked(parkedFrame(for: frame, preferLeft: preferLeft, context))
+          result[window] = .parked(parkedFrame(for: frame, preferLeft: x + width / 2 < viewport.midX, context))
         } else {
           result[window] = .visible(frame)
         }
@@ -71,21 +79,18 @@ extension Strip {
 
   private func parkedFrame(for frame: CGRect, preferLeft: Bool, _ context: LayoutContext) -> CGRect {
     let display = context.displayFrame
-    let blocked = context.neighbourEdges
-    var parked = frame
+    let leftX = display.minX - frame.width + 1
+    let rightX = display.maxX - 1
+    let (nearX, farX) = preferLeft ? (leftX, rightX) : (rightX, leftX)
+    let bottomY = display.maxY - 1
 
-    func park(on side: Edges) {
-      parked.origin.x = side == .left ? display.minX - frame.width + 1 : display.maxX - 1
-    }
-
-    let preferred: Edges = preferLeft ? .left : .right
-    if !blocked.contains(.bottom) {
-      park(on: preferred)
-      parked.origin.y = display.maxY - 1
-      return parked
-    }
-    let other: Edges = preferLeft ? .right : .left
-    park(on: blocked.contains(preferred) && !blocked.contains(other) ? other : preferred)
-    return parked
+    let candidates = [
+      CGPoint(x: nearX, y: bottomY),
+      CGPoint(x: farX, y: bottomY),
+      CGPoint(x: nearX, y: frame.minY),
+      CGPoint(x: farX, y: frame.minY),
+    ]
+    let origin = candidates.first { !context.touchesOtherDisplay(CGRect(origin: $0, size: frame.size)) } ?? candidates[0]
+    return CGRect(origin: origin, size: frame.size)
   }
 }

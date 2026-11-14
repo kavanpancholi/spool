@@ -126,7 +126,7 @@ final class StripTests: XCTestCase {
     var strip = makeStrip(3, width: 1.0 / 3.0)
     strip.focusedColumn = 0
     _ = strip.apply(.center, settings: SpoolSettings(), geometry: geometry)
-    let placement = strip.layout(LayoutContext(geometry: geometry, displayFrame: geometry.viewport, neighbourEdges: []))
+    let placement = strip.layout(LayoutContext(geometry: geometry, displayFrame: geometry.viewport, otherDisplays: []))
     let frame = placement[1]!.frame
     XCTAssertEqual(frame.midX, 500, accuracy: 1)
   }

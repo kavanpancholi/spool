@@ -603,11 +603,14 @@ public final class WindowManager {
 
   private func apply(_ key: StripKey, scroll: Double) {
     guard activeKeys[key.display] == key, let strip = strips[key], let display = display(for: key) else { return }
-    let context = LayoutContext(geometry: geometry(display), displayFrame: display.frame, neighbourEdges: display.neighbourEdges)
-    for (id, placement) in strip.layout(context, scroll: scroll) {
+    for (id, placement) in strip.layout(context(display), scroll: scroll) {
       guard let window = windows[id] else { continue }
       if lastTargets[id] != placement.frame { corrections[id] = nil }
-      if placement.isVisible { parked.remove(id) } else { parked.insert(id) }
+      if placement.isVisible {
+        if parked.remove(id) != nil { writer.invalidate(id) }
+      } else {
+        parked.insert(id)
+      }
       lastTargets[id] = placement.frame
       writer.submit(window.element, pid: window.pid, id: id, frame: placement.frame)
     }
@@ -642,8 +645,7 @@ public final class WindowManager {
     for (uuid, key) in activeKeys {
       guard let strip = strips[key], let display = displays.first(where: { $0.uuid == uuid }) else { continue }
       let visible = display.visibleFrame
-      let context = LayoutContext(geometry: geometry(display), displayFrame: display.frame, neighbourEdges: display.neighbourEdges)
-      for (id, placement) in strip.layout(context) {
+      for (id, placement) in strip.layout(context(display)) {
         guard case .parked(let frame) = placement, let window = windows[id] else { continue }
         let width = min(frame.width, visible.width)
         let x = frame.midX < visible.midX ? visible.minX + settings.outerGap : visible.maxX - width - settings.outerGap
@@ -695,6 +697,14 @@ public final class WindowManager {
     let center = CGPoint(x: frame.midX, y: frame.midY)
     if let display = displays.first(where: { $0.contains(center) }) { return display }
     return displays.min { $0.distance(to: center) < $1.distance(to: center) }
+  }
+
+  private func context(_ display: Display) -> LayoutContext {
+    LayoutContext(
+      geometry: geometry(display),
+      displayFrame: display.frame,
+      otherDisplays: displays.filter { $0.id != display.id }.map(\.frame)
+    )
   }
 
   private func geometry(_ display: Display) -> StripGeometry {
