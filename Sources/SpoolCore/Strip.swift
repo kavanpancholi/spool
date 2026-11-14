@@ -101,6 +101,20 @@ public struct Strip: Equatable, Sendable {
     }
   }
 
+  public mutating func insert(_ window: WindowID, width: Double, at index: Int) {
+    guard !contains(window) else { return }
+    let index = min(max(0, index), columns.count)
+    columns.insert(Column(windows: [window], width: width), at: index)
+    focusedColumn = index
+  }
+
+  public func insertionIndex(forScreenX x: Double, _ geometry: StripGeometry) -> Int {
+    let lefts = columnLefts(geometry)
+    return columns.indices.filter { index in
+      geometry.viewport.minX + lefts[index] - scroll + geometry.points(forFraction: columns[index].width) / 2 < x
+    }.count
+  }
+
   public mutating func moveColumn(from source: Int, to destination: Int) {
     guard source != destination, columns.indices.contains(source), columns.indices.contains(destination) else { return }
     let focused = focusedWindow

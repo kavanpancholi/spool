@@ -186,4 +186,20 @@ final class StripTests: XCTestCase {
     let decoded = try JSONDecoder().decode(SpoolSettings.self, from: Data("{}".utf8))
     XCTAssertTrue(decoded.showBar)
   }
+
+  func test_insertion_index_follows_drop_position() {
+    let strip = makeStrip(3)
+    XCTAssertEqual(strip.insertionIndex(forScreenX: 0, geometry), 0)
+    XCTAssertEqual(strip.insertionIndex(forScreenX: 400, geometry), 1)
+    XCTAssertEqual(strip.insertionIndex(forScreenX: 800, geometry), 2)
+    XCTAssertEqual(strip.insertionIndex(forScreenX: 5000, geometry), 3)
+  }
+
+  func test_insert_at_index_focuses_new_window() {
+    var strip = makeStrip(2)
+    strip.focusedColumn = 0
+    strip.insert(9, width: 0.5, at: 1)
+    XCTAssertEqual(strip.windows, [1, 9, 2])
+    XCTAssertEqual(strip.focusedWindow, 9)
+  }
 }
