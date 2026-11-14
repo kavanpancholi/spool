@@ -1,0 +1,105 @@
+import Foundation
+
+public struct Shortcut: Hashable, Codable, Sendable {
+  public var keyCode: UInt32
+  public var modifiers: ModifierState
+  public var command: Command
+
+  public init(_ keyCode: UInt32, _ modifiers: ModifierState, _ command: Command) {
+    self.keyCode = keyCode
+    self.modifiers = modifiers
+    self.command = command
+  }
+}
+
+public enum KeyCode {
+  public static let h: UInt32 = 4
+  public static let j: UInt32 = 38
+  public static let k: UInt32 = 40
+  public static let l: UInt32 = 37
+  public static let left: UInt32 = 123
+  public static let right: UInt32 = 124
+  public static let down: UInt32 = 125
+  public static let up: UInt32 = 126
+  public static let digits: [UInt32] = [18, 19, 20, 21, 23, 22, 26, 28, 25]
+  public static let equal: UInt32 = 24
+  public static let minus: UInt32 = 27
+  public static let r: UInt32 = 15
+  public static let f: UInt32 = 3
+  public static let c: UInt32 = 8
+  public static let n: UInt32 = 45
+  public static let q: UInt32 = 12
+  public static let t: UInt32 = 17
+
+  public static func name(_ code: UInt32) -> String {
+    switch code {
+    case h: "H"
+    case j: "J"
+    case k: "K"
+    case l: "L"
+    case left: "←"
+    case right: "→"
+    case down: "↓"
+    case up: "↑"
+    case equal: "="
+    case minus: "-"
+    case r: "R"
+    case f: "F"
+    case c: "C"
+    case n: "N"
+    case q: "Q"
+    case t: "T"
+    default:
+      if let index = digits.firstIndex(of: code) { "\(index + 1)" } else { "#\(code)" }
+    }
+  }
+}
+
+extension ModifierState {
+  public var symbols: String {
+    var result = ""
+    if contains(.control) { result += "⌃" }
+    if contains(.option) { result += "⌥" }
+    if contains(.shift) { result += "⇧" }
+    if contains(.command) { result += "⌘" }
+    return result
+  }
+}
+
+extension Shortcut {
+  public var display: String { modifiers.symbols + KeyCode.name(keyCode) }
+
+  public static let defaults: [Shortcut] = {
+    let base: ModifierState = [.control, .option]
+    let move: ModifierState = [.control, .option, .shift]
+    var list: [Shortcut] = []
+    let directions: [(Direction, [UInt32])] = [
+      (.left, [KeyCode.h, KeyCode.left]),
+      (.down, [KeyCode.j, KeyCode.down]),
+      (.up, [KeyCode.k, KeyCode.up]),
+      (.right, [KeyCode.l, KeyCode.right]),
+    ]
+    for (direction, keys) in directions {
+      for key in keys {
+        list.append(Shortcut(key, base, .focus(direction)))
+        list.append(Shortcut(key, move, .move(direction)))
+      }
+    }
+    list.append(Shortcut(KeyCode.left, base.union(.command), .focusFirst))
+    list.append(Shortcut(KeyCode.right, base.union(.command), .focusLast))
+    list.append(Shortcut(KeyCode.left, move.union(.command), .moveFirst))
+    list.append(Shortcut(KeyCode.right, move.union(.command), .moveLast))
+    for (offset, key) in KeyCode.digits.enumerated() {
+      list.append(Shortcut(key, base, .focusIndex(offset + 1)))
+    }
+    list.append(Shortcut(KeyCode.r, base, .cycleWidth))
+    list.append(Shortcut(KeyCode.f, base, .fullWidth))
+    list.append(Shortcut(KeyCode.c, base, .center))
+    list.append(Shortcut(KeyCode.equal, base, .wider))
+    list.append(Shortcut(KeyCode.minus, base, .narrower))
+    list.append(Shortcut(KeyCode.n, base, .sendToNextDisplay))
+    list.append(Shortcut(KeyCode.t, base, .toggleFloat))
+    list.append(Shortcut(KeyCode.q, base, .toggleEnabled))
+    return list
+  }()
+}
