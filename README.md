@@ -17,6 +17,8 @@ the app under the pointer.
 
 - macOS 13 Ventura or later, Apple silicon
 - Accessibility permission (Spool moves windows and reads scroll and swipe input)
+- Screen Recording permission, optional: smooth slides across screens use
+  window snapshots while the strip moves
 
 ## Build and run
 
@@ -64,6 +66,9 @@ All use ⌃⌥ (Control-Option).
 
 - Off-screen windows are parked in a bottom corner, away from other
   displays. Spool never minimises or hides them.
+- With Screen Recording allowed, the strip slides as one picture: Spool shows
+  snapshots of the windows while it moves, clipped at each screen edge, then
+  moves the real windows once it stops.
 - At an edge shared with another display, macOS clips a sliding window. Once
   more than half of it would cross, Spool parks it. With "Displays have
   separate Spaces" on (the macOS default), macOS draws a window on one display
