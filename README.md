@@ -76,7 +76,8 @@ All use ⌃⌥ (Control-Option).
 - A bar at the bottom of the main display shows the windows of every
   display, grouped in display order with a divider. Click a tile to jump to
   the window, drag it to reorder, or drag it past the divider to move the
-  window to another display. Hover for the title. Turn it off in
+  window to another display. Hover for the title. Minimised windows stay in
+  the bar, dimmed; click one to restore it. Turn it off in
   Settings → General.
 - Dialogs, open and save panels, fixed-size windows, windows without close
   or minimise buttons, and apps on your float list float.
