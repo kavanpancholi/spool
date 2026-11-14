@@ -61,6 +61,7 @@ public final class WindowManager {
   private var manuallyFloating: Set<WindowID> = []
   private var corrections: [WindowID: Int] = [:]
   private var parked: Set<WindowID> = []
+  private var fitted: Set<WindowID> = []
   private var pendingFrameChecks: Set<WindowID> = []
   private var draggedWindows: Set<WindowID> = []
   private var minimizedIDs: Set<WindowID> = []
@@ -431,6 +432,7 @@ public final class WindowManager {
     minimizedIDs.remove(id)
     draggedWindows.remove(id)
     parked.remove(id)
+    fitted.remove(id)
     lastTargets[id] = nil
     corrections[id] = nil
     manuallyFloating.remove(id)
@@ -565,7 +567,9 @@ public final class WindowManager {
   }
 
   private func frameChanged(_ window: ManagedWindow) {
-    guard let key = activeKey(containing: window.id), lastTargets[window.id] != nil, !parked.contains(window.id) else { return }
+    guard let key = activeKey(containing: window.id), lastTargets[window.id] != nil, !parked.contains(window.id), !fitted.contains(window.id) else {
+      return
+    }
     if NSEvent.pressedMouseButtons != 0 { draggedWindows.insert(window.id) }
     if animationTimer != nil || writer.isBusy(window.id, within: 0.35) || NSEvent.pressedMouseButtons != 0 {
       deferFrameCheck(window)
@@ -701,7 +705,7 @@ public final class WindowManager {
   private func settle(_ key: StripKey, snap: Bool) {
     guard var strip = strips[key], let display = display(for: key) else { return }
     let geometry = geometry(display)
-    if snap { strip.scroll = strip.gentleSnapScroll(near: strip.scroll, threshold: geometry.viewport.width * 0.15, geometry) }
+    if snap { strip.scroll = strip.snapScroll(near: strip.scroll, geometry) }
     var focusTarget: WindowID?
     if let leftmost = strip.leftmostVisibleColumn(at: strip.scroll, geometry), leftmost != strip.focusedColumn {
       strip.focusedColumn = leftmost
@@ -786,6 +790,7 @@ public final class WindowManager {
       } else {
         parked.insert(id)
       }
+      if case .fitted = placement { fitted.insert(id) } else { fitted.remove(id) }
       lastTargets[id] = placement.frame
       writer.submit(window.element, pid: window.pid, id: id, frame: placement.frame)
     }
