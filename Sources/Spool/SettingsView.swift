@@ -42,6 +42,7 @@ private struct GeneralTab: View {
         Text(loginError).foregroundStyle(.red).font(.caption)
       }
       Toggle("Animate the strip", isOn: $store.settings.animate)
+      Toggle("Show window bar at the bottom", isOn: $store.settings.showBar)
       Picker("Centre focused window", selection: $store.settings.centerMode) {
         Text("Never").tag(CenterMode.never)
         Text("When it does not fit").tag(CenterMode.onOverflow)

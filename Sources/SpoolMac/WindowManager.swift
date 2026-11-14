@@ -38,6 +38,8 @@ public final class WindowManager {
   private let writer = FrameWriter()
   private let input = InputTap()
   private let hotKeys = HotKeys()
+  private let bars = BarController()
+  private var barRefreshQueued = false
   private let focusQueue = DispatchQueue(label: "Spool focus", qos: .userInteractive)
   private let focusGeneration = Generation()
 
@@ -69,6 +71,9 @@ public final class WindowManager {
     failedShortcuts = hotKeys.register(Shortcut.defaults)
     input.onWheel = { [weak self] delta, point in self?.wheel(delta, at: point) ?? false }
     input.onSwipe = { [weak self] phase, point in self?.swipe(phase, at: point) }
+    bars.onSelect = { [weak self] id in self?.reveal(id) }
+    bars.onMove = { [weak self] id, index in self?.moveTile(id, to: index) }
+    bars.label = { [weak self] id in self?.label(for: id) ?? "" }
     store.$settings
       .dropFirst()
       .receive(on: RunLoop.main)
@@ -113,6 +118,7 @@ public final class WindowManager {
     for (center, token) in workspaceTokens { center.removeObserver(token) }
     workspaceTokens.removeAll()
     unparkAll()
+    bars.hideAll()
     observers.removeAll()
     windows.values.forEach { writer.forget($0.id) }
     windows.removeAll()
@@ -467,6 +473,7 @@ public final class WindowManager {
   }
 
   private func syncFocus() {
+    scheduleBarRefresh()
     guard isRunning, let window = focusedManagedWindow() else { return }
     guard let key = activeKey(containing: window.id), var strip = strips[key], let display = display(for: key) else {
       if manuallyFloating.contains(window.id) == false, tileability(window) == .tile {
@@ -597,6 +604,7 @@ public final class WindowManager {
 
   private func relayout(_ key: StripKey, animated: Bool) {
     guard let strip = strips[key] else { return }
+    scheduleBarRefresh()
     if animated && settings.animate, var spring = springs[key] {
       spring.target = strip.scroll
       springs[key] = spring
@@ -715,7 +723,66 @@ public final class WindowManager {
   }
 
   private func geometry(_ display: Display) -> StripGeometry {
-    StripGeometry(viewport: display.visibleFrame, innerGap: settings.innerGap, outerGap: settings.outerGap)
+    var viewport = display.visibleFrame
+    if settings.showBar { viewport.size.height -= BarMetrics.reserve }
+    return StripGeometry(viewport: viewport, innerGap: settings.innerGap, outerGap: settings.outerGap)
+  }
+
+  private func scheduleBarRefresh() {
+    guard !barRefreshQueued else { return }
+    barRefreshQueued = true
+    DispatchQueue.main.async { [weak self] in
+      self?.barRefreshQueued = false
+      self?.refreshBars()
+    }
+  }
+
+  private func refreshBars() {
+    guard isRunning, settings.showBar else {
+      bars.hideAll()
+      return
+    }
+    let focused = focusedManagedWindow()?.id
+    let entries = displays.compactMap { display -> (display: Display, tiles: [BarTile])? in
+      guard let key = activeKeys[display.uuid], let strip = strips[key] else { return nil }
+      let tiles = strip.windows.compactMap { id in
+        windows[id].map { BarTile(id: id, pid: $0.pid, focused: id == focused) }
+      }
+      return (display, tiles)
+    }
+    bars.update(entries)
+  }
+
+  private func reveal(_ id: WindowID) {
+    guard let key = activeKey(containing: id), var strip = strips[key], let display = display(for: key) else { return }
+    strip.focus(window: id)
+    if let index = strip.focusedColumn {
+      strip.scroll = strip.revealScroll(column: index, mode: settings.centerMode, geometry(display))
+    }
+    strips[key] = strip
+    relayout(key, animated: true)
+    focus(id)
+  }
+
+  private func moveTile(_ id: WindowID, to tileIndex: Int) {
+    guard let key = activeKey(containing: id), var strip = strips[key], let display = display(for: key),
+      let source = strip.columnIndex(of: id)
+    else { return }
+    let windowsInOrder = strip.windows
+    guard windowsInOrder.indices.contains(tileIndex), let destination = strip.columnIndex(of: windowsInOrder[tileIndex]) else { return }
+    strip.moveColumn(from: source, to: destination)
+    if let index = strip.focusedColumn {
+      strip.scroll = strip.revealScroll(column: index, mode: settings.centerMode, geometry(display))
+    }
+    strips[key] = strip
+    relayout(key, animated: true)
+  }
+
+  private func label(for id: WindowID) -> String {
+    guard let window = windows[id] else { return "" }
+    let app = NSRunningApplication(processIdentifier: window.pid)?.localizedName ?? ""
+    let title: String = AX.value(window.element, kAXTitleAttribute) ?? ""
+    return title.isEmpty || title == app ? app : "\(app) · \(title)"
   }
 
   static func quartzMouseLocation() -> CGPoint {
