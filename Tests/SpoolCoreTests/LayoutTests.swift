@@ -25,13 +25,13 @@ final class LayoutTests: XCTestCase {
     LayoutContext(geometry: geometry, displayFrame: display, otherDisplays: others)
   }
 
-  func test_column_spills_onto_a_display_tall_enough_to_hold_it() {
+  func test_column_parks_once_most_of_it_crosses_onto_any_other_display() {
     var strip = makeStrip(3)
-    strip.scroll = 300
     let tallerOnLeft = DisplayArea(frame: CGRect(x: -1000, y: -100, width: 1000, height: 1000))
+    strip.scroll = 200
     XCTAssertTrue(strip.layout(context([tallerOnLeft]))[1]!.isVisible)
-    let shorterOnLeft = DisplayArea(frame: CGRect(x: -1000, y: 200, width: 1000, height: 630))
-    XCTAssertFalse(strip.layout(context([shorterOnLeft]))[1]!.isVisible)
+    strip.scroll = 300
+    XCTAssertFalse(strip.layout(context([tallerOnLeft]))[1]!.isVisible)
   }
 
   func test_offscreen_column_parks_in_bottom_right_corner() {

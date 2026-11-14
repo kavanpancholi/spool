@@ -64,9 +64,10 @@ All use ⌃⌥ (Control-Option).
 
 - Off-screen windows are parked in a bottom corner, away from other
   displays. Spool never minimises or hides them.
-- A window slides past an edge shared with another display. It parks only
-  when most of it would sit on a display too short to hold it, because macOS
-  would otherwise move it there and shrink it.
+- At an edge shared with another display, macOS clips a sliding window. Once
+  more than half of it would cross, Spool parks it. With "Displays have
+  separate Spaces" on (the macOS default), macOS draws a window on one display
+  only, so letting it cross further would make it jump screens.
 - After a scroll the strip glides to the nearest window edge and focuses the
   leftmost window that is fully on screen.
 - Each display, and each macOS Space, has its own strip. Drag a window onto

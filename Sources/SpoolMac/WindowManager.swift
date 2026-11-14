@@ -813,7 +813,7 @@ public final class WindowManager {
     LayoutContext(
       geometry: geometry(display),
       displayFrame: display.frame,
-      otherDisplays: displays.filter { $0.id != display.id }.map { DisplayArea(frame: $0.frame, visibleFrame: $0.visibleFrame) }
+      otherDisplays: displays.filter { $0.id != display.id }.map { DisplayArea(frame: $0.frame) }
     )
   }
 

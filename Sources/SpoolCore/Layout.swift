@@ -19,15 +19,9 @@ public enum Placement: Equatable, Sendable {
 
 public struct DisplayArea: Equatable, Sendable {
   public var frame: CGRect
-  public var visibleFrame: CGRect
 
-  public init(frame: CGRect, visibleFrame: CGRect? = nil) {
+  public init(frame: CGRect) {
     self.frame = frame
-    self.visibleFrame = visibleFrame ?? frame
-  }
-
-  func holdsVertically(_ rect: CGRect) -> Bool {
-    rect.minY >= visibleFrame.minY - 0.5 && rect.maxY <= visibleFrame.maxY + 0.5
   }
 }
 
@@ -44,9 +38,9 @@ public struct LayoutContext: Equatable, Sendable {
 
   static let titleBarKeptOnScreen = 60.0
 
-  func wouldBeCapturedByOtherDisplay(_ rect: CGRect) -> Bool {
+  func isMostlyOnOtherDisplay(_ rect: CGRect) -> Bool {
     let own = rect.intersection(displayFrame).area
-    return otherDisplays.contains { rect.intersection($0.frame).area > own && !$0.holdsVertically(rect) }
+    return otherDisplays.contains { rect.intersection($0.frame).area > own }
   }
 
   func touchesOtherDisplay(_ rect: CGRect) -> Bool {
@@ -76,7 +70,7 @@ extension Strip {
       let count = Double(column.windows.count)
       let rowHeight = ((geometry.usableHeight - (count - 1) * geometry.innerGap) / count).rounded(.down)
       let columnRect = CGRect(x: x, y: viewport.minY + geometry.outerGap, width: width, height: geometry.usableHeight)
-      let park = x + width <= viewport.minX || x >= viewport.maxX || context.wouldBeCapturedByOtherDisplay(columnRect)
+      let park = x + width <= viewport.minX || x >= viewport.maxX || context.isMostlyOnOtherDisplay(columnRect)
 
       for (row, window) in column.windows.enumerated() {
         var y = (viewport.minY + geometry.outerGap + Double(row) * (rowHeight + geometry.innerGap)).rounded()
