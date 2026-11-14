@@ -13,6 +13,11 @@ enum AX {
     (value(element, attribute) as NSNumber?)?.boolValue ?? false
   }
 
+  static func has(_ element: AXUIElement, _ attribute: String) -> Bool {
+    var raw: CFTypeRef?
+    return AXUIElementCopyAttributeValue(element, attribute as CFString, &raw) == .success && raw != nil
+  }
+
   static func isSettable(_ element: AXUIElement, _ attribute: String) -> Bool {
     var settable = DarwinBoolean(false)
     guard AXUIElementIsAttributeSettable(element, attribute as CFString, &settable) == .success else { return false }
