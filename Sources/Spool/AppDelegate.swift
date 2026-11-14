@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var settingsWindow: NSWindow?
   private var onboardingWindow: NSWindow?
   private var permissionTimer: Timer?
+  private var signalSources: [DispatchSourceSignal] = []
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     if isAnotherInstanceRunning() {
@@ -19,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       return
     }
     manager = WindowManager(store: store)
+    quitCleanlyOnSignals()
     manager.onStateChange = { [weak self] in self?.rebuildMenu() }
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     statusItem.autosaveName = "Spool"
@@ -42,6 +44,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
     showSettings()
     return false
+  }
+
+  private func quitCleanlyOnSignals() {
+    for signalNumber in [SIGTERM, SIGINT, SIGHUP] {
+      signal(signalNumber, SIG_IGN)
+      let source = DispatchSource.makeSignalSource(signal: signalNumber, queue: .main)
+      source.setEventHandler { NSApp.terminate(nil) }
+      source.resume()
+      signalSources.append(source)
+    }
   }
 
   private func isAnotherInstanceRunning() -> Bool {
