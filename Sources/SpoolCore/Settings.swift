@@ -59,7 +59,7 @@ public struct TrackpadSettings: Codable, Equatable, Sendable {
 }
 
 public struct SpoolSettings: Codable, Equatable, Sendable {
-  public static let currentVersion = 2
+  public static let currentVersion = 3
 
   public var version = SpoolSettings.currentVersion
   public var enabled = true
@@ -70,7 +70,7 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
   public var centerMode = CenterMode.never
   public var animate = true
   public var showBar = true
-  public var smoothSlides = true
+  public var smoothSlides = false
   public var thumbWheel = ThumbWheelSettings()
   public var trackpad = TrackpadSettings()
   public var floatingBundleIDs: [String] = []
@@ -97,6 +97,9 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
     let savedVersion = try c.decodeIfPresent(Int.self, forKey: .version) ?? 1
     if savedVersion < 2 {
       thumbWheel.snapDelay = max(thumbWheel.snapDelay, defaults.thumbWheel.snapDelay)
+    }
+    if savedVersion < 3 {
+      smoothSlides = false
     }
     version = Self.currentVersion
   }
