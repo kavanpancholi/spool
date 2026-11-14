@@ -61,9 +61,11 @@ All use ⌃⌥ (Control-Option).
 
 ## How it works
 
-- Off-screen windows are parked in the bottom corner on the side they left,
-  with 1 pixel on screen. Spool never minimises or hides them.
-- Windows slide past an edge shared with another display while they move.
+- Off-screen windows are parked in a bottom corner, away from other
+  displays. Spool never minimises or hides them.
+- A window slides past an edge shared with another display until most of it
+  would be on that display. Then it parks, because macOS would otherwise move
+  it onto that display and resize it.
 - After a scroll the strip glides to the nearest window edge and focuses the
   leftmost window that is fully on screen.
 - Each display, and each macOS Space, has its own strip.
