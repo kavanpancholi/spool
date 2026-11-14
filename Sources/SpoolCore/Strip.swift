@@ -101,6 +101,13 @@ public struct Strip: Equatable, Sendable {
     }
   }
 
+  public mutating func moveColumn(from source: Int, to destination: Int) {
+    guard source != destination, columns.indices.contains(source), columns.indices.contains(destination) else { return }
+    let focused = focusedWindow
+    columns.insert(columns.remove(at: source), at: destination)
+    if let focused { focus(window: focused) }
+  }
+
   @discardableResult
   public mutating func focus(window: WindowID) -> Bool {
     guard let index = columnIndex(of: window) else { return false }

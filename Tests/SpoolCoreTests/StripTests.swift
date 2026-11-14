@@ -166,4 +166,24 @@ final class StripTests: XCTestCase {
     strip.columns[0].width = 1
     XCTAssertEqual(strip.leftmostVisibleColumn(at: 300, geometry), 0)
   }
+
+  func test_move_column_reorders_and_keeps_focus() {
+    var strip = makeStrip(4)
+    strip.focusedColumn = 1
+    strip.moveColumn(from: 0, to: 3)
+    XCTAssertEqual(strip.windows, [2, 3, 4, 1])
+    XCTAssertEqual(strip.focusedWindow, 2)
+  }
+
+  func test_move_column_ignores_bad_indices() {
+    var strip = makeStrip(2)
+    strip.moveColumn(from: 0, to: 5)
+    XCTAssertEqual(strip.windows, [1, 2])
+  }
+
+  func test_settings_default_shows_bar() throws {
+    XCTAssertTrue(SpoolSettings().showBar)
+    let decoded = try JSONDecoder().decode(SpoolSettings.self, from: Data("{}".utf8))
+    XCTAssertTrue(decoded.showBar)
+  }
 }

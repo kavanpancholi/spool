@@ -66,6 +66,7 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
   public var widthStep = 0.1
   public var centerMode = CenterMode.never
   public var animate = true
+  public var showBar = true
   public var thumbWheel = ThumbWheelSettings()
   public var trackpad = TrackpadSettings()
   public var floatingBundleIDs: [String] = []
@@ -83,6 +84,7 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
     widthStep = try c.decodeIfPresent(Double.self, forKey: .widthStep) ?? defaults.widthStep
     centerMode = try c.decodeIfPresent(CenterMode.self, forKey: .centerMode) ?? defaults.centerMode
     animate = try c.decodeIfPresent(Bool.self, forKey: .animate) ?? defaults.animate
+    showBar = try c.decodeIfPresent(Bool.self, forKey: .showBar) ?? defaults.showBar
     thumbWheel = try c.decodeIfPresent(ThumbWheelSettings.self, forKey: .thumbWheel) ?? defaults.thumbWheel
     trackpad = try c.decodeIfPresent(TrackpadSettings.self, forKey: .trackpad) ?? defaults.trackpad
     floatingBundleIDs = try c.decodeIfPresent([String].self, forKey: .floatingBundleIDs) ?? defaults.floatingBundleIDs
