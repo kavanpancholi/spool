@@ -22,6 +22,7 @@ Spool ships in four phases. Each phase is usable on its own.
 - [ ] Launch at login
 - [ ] Menu bar item and settings window
 - [ ] Stop and start the window manager (⌃⌥Q)
+- [ ] Window bar at the bottom of each display: click to focus, drag to reorder, hover for title
 
 ## Phase 2: columns
 
@@ -36,7 +37,6 @@ Spool ships in four phases. Each phase is usable on its own.
 ## Phase 3: polish
 
 - [ ] Session restore: order, widths and stacks per display and Space
-- [ ] Clickable strip indicator, drag tiles to reorder
 - [ ] Focus border and inactive window dimming
 - [ ] Focus follows mouse, mouse follows focus
 - [ ] Per-app rules: fixed slot

@@ -69,6 +69,9 @@ All use ⌃⌥ (Control-Option).
 - After a scroll the strip glides to the nearest window edge and focuses the
   leftmost window that is fully on screen.
 - Each display, and each macOS Space, has its own strip.
+- A bar at the bottom of each display shows that display's windows in strip
+  order. Click a tile to jump to the window, drag tiles to reorder, hover for
+  the title. Turn it off in Settings → General.
 - Dialogs, sheets, fixed-size windows and apps on your float list float.
   Native full-screen windows are left alone.
 - When Spool quits it moves parked windows back on screen.
