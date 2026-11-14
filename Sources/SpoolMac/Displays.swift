@@ -26,6 +26,8 @@ public struct Display: Equatable {
     }
   }
 
+  public var isPrimary: Bool { frame.origin == .zero }
+
   public func contains(_ point: CGPoint) -> Bool {
     frame.contains(point)
   }

@@ -96,6 +96,7 @@ public final class WindowManager {
       track(app, discover: false)
     }
     rebuild(resetOrder: true)
+    NSWorkspace.shared.runningApplications.filter(Self.isSystemPrompt).forEach(Self.bringToFront)
     displayWatch = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
       guard let self, Display.current() != self.displays else { return }
       self.scheduleRebuild(after: 0.1)
@@ -237,10 +238,12 @@ public final class WindowManager {
       workspaceTokens.append((center, center.addObserver(forName: name, object: nil, queue: .main, using: block)))
     }
     on(center, NSWorkspace.didLaunchApplicationNotification) { [weak self] note in
-      guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-        app.activationPolicy == .regular
-      else { return }
-      self?.track(app, discover: true)
+      guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+      if Self.isSystemPrompt(app) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { Self.bringToFront(app) }
+      } else if app.activationPolicy == .regular {
+        self?.track(app, discover: true)
+      }
     }
     on(center, NSWorkspace.didTerminateApplicationNotification) { [weak self] note in
       guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
@@ -511,6 +514,11 @@ public final class WindowManager {
     let moved = abs(actual.minX - target.minX) > 2 || abs(actual.minY - target.minY) > 2 || abs(actual.height - target.height) > 2
     guard widthChanged || moved else { return }
 
+    if moved, let landed = self.display(containing: actual), landed.uuid != display.uuid, let landedKey = activeKeys[landed.uuid] {
+      moveWindow(window.id, from: key, to: landedKey, droppedAt: actual)
+      return
+    }
+
     let attempts = (corrections[window.id] ?? 0) + 1
     corrections[window.id] = attempts
     if attempts > 4 { return }
@@ -522,6 +530,29 @@ public final class WindowManager {
     }
     writer.invalidate(window.id)
     relayout(key, animated: false)
+  }
+
+  private func moveWindow(_ id: WindowID, from sourceKey: StripKey, to targetKey: StripKey, droppedAt frame: CGRect) {
+    guard var source = strips[sourceKey], let sourceDisplay = display(for: sourceKey), let targetDisplay = display(for: targetKey) else { return }
+    source.remove(id)
+    if let index = source.focusedColumn {
+      source.scroll = source.revealScroll(column: index, mode: settings.centerMode, geometry(sourceDisplay))
+    }
+    strips[sourceKey] = source
+
+    let targetGeometry = geometry(targetDisplay)
+    var target = strips[targetKey] ?? Strip()
+    let width = min(1, max(0.1, targetGeometry.fraction(forPoints: frame.width)))
+    target.insert(id, width: width, at: target.insertionIndex(forScreenX: frame.midX, targetGeometry))
+    if let index = target.focusedColumn {
+      target.scroll = target.revealScroll(column: index, mode: settings.centerMode, targetGeometry)
+    }
+    strips[targetKey] = target
+    corrections[id] = nil
+    writer.invalidate(id)
+    relayout(sourceKey, animated: true)
+    relayout(targetKey, animated: true)
+    focus(id)
   }
 
   private func deferFrameCheck(_ window: ManagedWindow) {
@@ -724,7 +755,7 @@ public final class WindowManager {
 
   private func geometry(_ display: Display) -> StripGeometry {
     var viewport = display.visibleFrame
-    if settings.showBar { viewport.size.height -= BarMetrics.reserve }
+    if settings.showBar && display.isPrimary { viewport.size.height -= BarMetrics.reserve }
     return StripGeometry(viewport: viewport, innerGap: settings.innerGap, outerGap: settings.outerGap)
   }
 
@@ -743,7 +774,7 @@ public final class WindowManager {
       return
     }
     let focused = focusedManagedWindow()?.id
-    let entries = displays.compactMap { display -> (display: Display, tiles: [BarTile])? in
+    let entries = displays.filter(\.isPrimary).compactMap { display -> (display: Display, tiles: [BarTile])? in
       guard let key = activeKeys[display.uuid], let strip = strips[key] else { return nil }
       let tiles = strip.windows.compactMap { id in
         windows[id].map { BarTile(id: id, pid: $0.pid, focused: id == focused) }
@@ -783,6 +814,24 @@ public final class WindowManager {
     let app = NSRunningApplication(processIdentifier: window.pid)?.localizedName ?? ""
     let title: String = AX.value(window.element, kAXTitleAttribute) ?? ""
     return title.isEmpty || title == app ? app : "\(app) · \(title)"
+  }
+
+  private static let systemPromptBundleIDs: Set<String> = [
+    "com.apple.accessibility.universalAccessAuthWarn",
+    "com.apple.SecurityAgent",
+    "com.apple.UserNotificationCenter",
+    "com.apple.CoreServicesUIAgent",
+  ]
+
+  static func isSystemPrompt(_ app: NSRunningApplication) -> Bool {
+    if let id = app.bundleIdentifier, systemPromptBundleIDs.contains(id) { return true }
+    return app.executableURL?.lastPathComponent == "universalAccessAuthWarn"
+  }
+
+  static func bringToFront(_ app: NSRunningApplication) {
+    let element = AXUIElementCreateApplication(app.processIdentifier)
+    AX.windows(of: element).forEach { AXUIElementPerformAction($0, kAXRaiseAction as CFString) }
+    app.activate(options: [])
   }
 
   static func quartzMouseLocation() -> CGPoint {
