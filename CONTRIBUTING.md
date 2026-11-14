@@ -16,12 +16,11 @@ windows.
 macOS ties the Accessibility permission to the app's code signature. An ad hoc
 signed build gets a new signature on every rebuild, so macOS asks again.
 
-Create a local certificate once:
-
-1. Open Keychain Access.
-2. Keychain Access → Certificate Assistant → Create a Certificate…
-3. Name: `Spool Development`. Identity Type: Self Signed Root.
-   Certificate Type: Code Signing. Create.
+Create a local certificate once with `scripts/make-dev-cert.sh`. It adds a
+self-signed "Spool Development" code signing certificate to your login
+keychain and asks for your password to trust it for code signing. Or make it
+by hand in Keychain Access → Certificate Assistant → Create a Certificate
+(Self Signed Root, Code Signing).
 
 `make app` picks it up automatically. To use another identity, set
 `SPOOL_SIGN_IDENTITY`.
