@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private let store = SettingsStore()
   private var manager: WindowManager!
   private var statusItem: NSStatusItem!
+  private var menu = NSMenu()
   private var settingsWindow: NSWindow?
   private var onboardingWindow: NSWindow?
   private var permissionTimer: Timer?
@@ -20,7 +21,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     manager = WindowManager(store: store)
     manager.onStateChange = { [weak self] in self?.rebuildMenu() }
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    statusItem.autosaveName = "Spool"
     statusItem.button?.image = NSImage(systemSymbolName: "rectangle.split.3x1", accessibilityDescription: "Spool")
+    statusItem.button?.target = self
+    statusItem.button?.action = #selector(openMenu)
+    statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
     rebuildMenu()
 
     if AXIsProcessTrusted() {
@@ -76,8 +81,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     menu.addItem(.separator())
     let quit = NSMenuItem(title: "Quit Spool", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
     menu.addItem(quit)
-    statusItem.menu = menu
+    self.menu = menu
     statusItem.button?.appearsDisabled = !running
+  }
+
+  @objc private func openMenu() {
+    guard let button = statusItem.button else { return }
+    let below: CGFloat = button.isFlipped ? button.bounds.height + 5 : -5
+    menu.popUp(positioning: nil, at: NSPoint(x: 0, y: below), in: button)
   }
 
   @objc private func toggleEnabled() {
