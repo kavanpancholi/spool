@@ -8,6 +8,7 @@ public struct Column: Equatable, Sendable {
   public var focusedRow = 0
   public var width: Double
   public var widthBeforeFullWidth: Double?
+  public var fixedHeight: Double?
 
   public init(windows: [WindowID], width: Double) {
     self.windows = windows

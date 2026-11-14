@@ -65,8 +65,13 @@ extension Strip {
       let park = x + width <= viewport.minX || x >= viewport.maxX || context.isMostlyOnOtherDisplay(columnRect)
 
       for (row, window) in column.windows.enumerated() {
-        let y = (viewport.minY + geometry.outerGap + Double(row) * (rowHeight + geometry.innerGap)).rounded()
-        let frame = CGRect(x: x, y: y, width: width, height: rowHeight)
+        var y = (viewport.minY + geometry.outerGap + Double(row) * (rowHeight + geometry.innerGap)).rounded()
+        var height = rowHeight
+        if let fixed = column.fixedHeight, fixed < rowHeight {
+          y += ((rowHeight - fixed) / 2).rounded()
+          height = fixed
+        }
+        let frame = CGRect(x: x, y: y, width: width, height: height)
         if park {
           result[window] = .parked(parkedFrame(for: frame, preferLeft: x + width / 2 < viewport.midX, context))
         } else {
