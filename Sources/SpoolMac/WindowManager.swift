@@ -43,6 +43,7 @@ public final class WindowManager {
   private let bars = BarController()
   private let snapshots = Snapshots()
   private let overlay = SlideOverlay()
+  private let staircase = DisplayStaircase()
   private var sliding: Set<StripKey> = []
   private var swiping: Set<StripKey> = []
   private var snapshotTimer: Timer?
@@ -108,6 +109,7 @@ public final class WindowManager {
       track(app, discover: false)
     }
     if settings.smoothSlides { snapshots.requestPermissionOnce() }
+    staircase.start { [weak self] in self?.scheduleRebuild(after: 0.1) }
     rebuild(resetOrder: true)
     displayWatch = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
       guard let self, Display.current() != self.displays else { return }
@@ -131,6 +133,7 @@ public final class WindowManager {
     for (center, token) in workspaceTokens { center.removeObserver(token) }
     workspaceTokens.removeAll()
     restoreAllWindows()
+    staircase.stop()
     bars.hideAll()
     overlay.hideAll()
     sliding.removeAll()
@@ -461,6 +464,10 @@ public final class WindowManager {
 
   private func rebuild(resetOrder: Bool) {
     guard isRunning else { return }
+    if staircase.reconcile(enabled: settings.isolateDisplays && !settings.spanDisplays) {
+      scheduleRebuild(after: 0.3)
+      return
+    }
     refreshSnapshots(after: 0.6)
     displays = Display.current()
     activeKeys = [:]

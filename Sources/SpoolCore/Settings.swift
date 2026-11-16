@@ -72,6 +72,7 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
   public var showBar = true
   public var smoothSlides = false
   public var spanDisplays = false
+  public var isolateDisplays = true
   public var thumbWheel = ThumbWheelSettings()
   public var trackpad = TrackpadSettings()
   public var floatingBundleIDs: [String] = []
@@ -92,6 +93,7 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
     showBar = try c.decodeIfPresent(Bool.self, forKey: .showBar) ?? defaults.showBar
     smoothSlides = try c.decodeIfPresent(Bool.self, forKey: .smoothSlides) ?? defaults.smoothSlides
     spanDisplays = try c.decodeIfPresent(Bool.self, forKey: .spanDisplays) ?? defaults.spanDisplays
+    isolateDisplays = try c.decodeIfPresent(Bool.self, forKey: .isolateDisplays) ?? defaults.isolateDisplays
     thumbWheel = try c.decodeIfPresent(ThumbWheelSettings.self, forKey: .thumbWheel) ?? defaults.thumbWheel
     trackpad = try c.decodeIfPresent(TrackpadSettings.self, forKey: .trackpad) ?? defaults.trackpad
     floatingBundleIDs = try c.decodeIfPresent([String].self, forKey: .floatingBundleIDs) ?? defaults.floatingBundleIDs
