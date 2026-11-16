@@ -42,11 +42,20 @@ final class BarModel: ObservableObject {
 
 struct BarView: View {
   @ObservedObject var model: BarModel
-  @State private var dragging: WindowID?
-  @State private var offset: CGFloat = 0
+  @State private var drag: TileDrag?
+
+  private struct TileDrag: Equatable {
+    let id: WindowID
+    let group: Int
+    let index: Int
+    var x: CGFloat
+    var drop: BarDrop
+    var released = false
+  }
 
   var body: some View {
     let layout = BarMetrics.layout(model.groups)
+    let preview = previewLayout(layout)
     let tileY = BarMetrics.padding + BarMetrics.tileHeight / 2
 
     ZStack(alignment: .topLeading) {
@@ -59,11 +68,11 @@ struct BarView: View {
         Rectangle()
           .fill(Color.white.opacity(0.25))
           .frame(width: 1, height: BarMetrics.icon)
-          .position(x: (layout.groupBounds(group - 1).upperBound + layout.groupBounds(group).lowerBound) / 2, y: tileY - BarMetrics.dot)
+          .position(x: (preview.groupBounds(group - 1).upperBound + preview.groupBounds(group).lowerBound) / 2, y: tileY - BarMetrics.dot)
       }
 
       ForEach(Array(model.groups.enumerated()), id: \.element.displayID) { group, entry in
-        if entry.tiles.isEmpty {
+        if entry.tiles.isEmpty && drag?.drop.group != group {
           RoundedRectangle(cornerRadius: 9, style: .continuous)
             .strokeBorder(Color.white.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
             .frame(width: BarMetrics.icon, height: BarMetrics.icon)
@@ -71,35 +80,65 @@ struct BarView: View {
         }
         ForEach(Array(entry.tiles.enumerated()), id: \.element.id) { index, tile in
           tileView(tile, group: group, index: index, layout: layout)
-            .position(x: layout.center(group: group, index: index) + (dragging == tile.id ? offset : 0), y: tileY)
+            .position(x: x(of: tile.id, group: group, index: index, preview: preview), y: tileY)
+            .transaction { if drag?.id == tile.id && drag?.released == false { $0.animation = nil } }
         }
       }
     }
+    .coordinateSpace(name: "bar")
     .frame(width: layout.width, height: BarMetrics.pillHeight)
     .animation(.easeOut(duration: 0.15), value: model.groups)
+    .animation(.easeOut(duration: 0.15), value: drag?.drop)
+    .onChange(of: model.groups) { _ in drag = nil }
+  }
+
+  private func previewLayout(_ layout: BarLayout) -> BarLayout {
+    guard let drag, drag.drop.group != drag.group else { return layout }
+    var counts = layout.groupCounts
+    counts[drag.group] -= 1
+    counts[drag.drop.group] += 1
+    return BarLayout(groupCounts: counts, icon: layout.icon, spacing: layout.spacing, groupGap: layout.groupGap, padding: layout.padding)
+  }
+
+  private func x(of id: WindowID, group: Int, index: Int, preview: BarLayout) -> CGFloat {
+    guard let drag else { return preview.center(group: group, index: index) }
+    if drag.id == id {
+      return drag.released ? preview.center(group: drag.drop.group, index: drag.drop.index) : drag.x
+    }
+    var slot = index
+    if group == drag.group && index > drag.index { slot -= 1 }
+    if group == drag.drop.group && slot >= drag.drop.index { slot += 1 }
+    return preview.center(group: group, index: slot)
   }
 
   private func tileView(_ tile: BarTile, group: Int, index: Int, layout: BarLayout) -> some View {
     let center = layout.center(group: group, index: index)
     return TileView(tile: tile)
-      .zIndex(dragging == tile.id ? 1 : 0)
+      .zIndex(drag?.id == tile.id ? 1 : 0)
       .onHover { inside in
-        model.onHover(inside && dragging == nil ? tile.id : nil, center)
+        model.onHover(inside && drag == nil ? tile.id : nil, center)
       }
       .onTapGesture { model.onSelect(tile.id) }
       .gesture(
-        DragGesture(minimumDistance: 5)
+        DragGesture(minimumDistance: 5, coordinateSpace: .named("bar"))
           .onChanged { value in
-            dragging = tile.id
-            offset = value.translation.width
-            model.onHover(nil, 0)
+            let x = center + value.translation.width
+            let drop = layout.drop(atX: x, dragging: (group, index))
+            if drag == nil { model.onHover(nil, 0) }
+            drag = TileDrag(id: tile.id, group: group, index: index, x: x, drop: drop)
           }
           .onEnded { value in
             let drop = layout.drop(atX: center + value.translation.width, dragging: (group, index))
-            dragging = nil
-            offset = 0
-            guard drop.group != group || drop.index != index else { return }
+            guard drop.group != group || drop.index != index else {
+              drag = nil
+              return
+            }
+            drag?.drop = drop
+            drag?.released = true
             model.onMove(tile.id, model.groups[drop.group].displayID, drop.index)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+              if drag?.id == tile.id && drag?.released == true { drag = nil }
+            }
           },
         including: tile.minimized ? .none : .all
       )
