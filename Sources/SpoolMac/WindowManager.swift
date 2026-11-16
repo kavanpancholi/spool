@@ -680,6 +680,17 @@ public final class WindowManager {
       return
     }
 
+    if moved, wasDragged, !widthChanged, abs(actual.height - target.height) <= 2 {
+      strip.drop(window.id, atScreenX: Self.quartzMouseLocation().x, geometry(display))
+      if let index = strip.focusedColumn {
+        strip.scroll = revealScroll(strip, column: index, display)
+      }
+      strips[key] = strip
+      writer.invalidate(window.id)
+      relayout(key, animated: true)
+      return
+    }
+
     let attempts = (corrections[window.id] ?? 0) + 1
     corrections[window.id] = attempts
     if attempts > 4 { return }

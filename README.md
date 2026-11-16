@@ -74,6 +74,8 @@ All use ⌃⌥ (Control-Option). Hold ⌃⌥ for a moment to see them on screen.
 - Spool remembers each strip's order, widths, stacks and focus, and puts them
   back when it starts again. A relaunched app takes its old slot. "Re-arrange
   Windows" in the menu ignores the saved order and starts fresh.
+- Drag a window by its title bar and let go between two columns to move it
+  there, or over the middle of a column to add it to that stack.
 - The focused window gets a border in your accent colour. Settings → Layout
   can turn it off, change its width, or dim the other windows.
 

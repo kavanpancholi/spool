@@ -215,6 +215,33 @@ public struct Strip: Equatable, Sendable {
   }
 
   @discardableResult
+  public mutating func drop(_ window: WindowID, atScreenX x: Double, _ geometry: StripGeometry) -> Bool {
+    guard let source = columnIndex(of: window), columns[source].fixedHeight == nil else { return false }
+    let before = self
+    let width = columns[source].width
+    remove(window)
+    let lefts = columnLefts(geometry)
+    let spans = columns.indices.map { index -> (minX: Double, maxX: Double) in
+      let minX = geometry.viewport.minX + lefts[index] - scroll
+      return (minX, minX + geometry.points(forFraction: columns[index].width))
+    }
+    if let target = spans.indices.first(where: { index in
+      let quarter = (spans[index].maxX - spans[index].minX) / 4
+      return x > spans[index].minX + quarter && x < spans[index].maxX - quarter
+    }), columns[target].fixedHeight == nil {
+      columns[target].windows.append(window)
+      columns[target].heights = nil
+      focusedColumn = target
+      columns[target].focusedRow = columns[target].windows.count - 1
+    } else {
+      let index = spans.filter { ($0.minX + $0.maxX) / 2 < x }.count
+      columns.insert(Column(windows: [window], width: width), at: index)
+      focusedColumn = index
+    }
+    return self != before
+  }
+
+  @discardableResult
   public mutating func swapWindow(_ direction: Direction) -> Bool {
     guard let index = focusedColumn, columns.indices.contains(index), direction == .left || direction == .right else { return false }
     let neighbour = direction == .left ? index - 1 : index + 1
