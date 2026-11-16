@@ -42,4 +42,16 @@ final class BarLayoutTests: XCTestCase {
     XCTAssertEqual(frame.height, 200)
     XCTAssertEqual(frame.midY, 430, accuracy: 1)
   }
+
+  func test_rubber_band_resists_drags_past_the_ends() {
+    let layout = BarLayout(groupCounts: [3, 1], icon: 34, spacing: 6, groupGap: 25, padding: 8)
+    let low = 8 + 17.0
+    let high = layout.width - 8 - 17
+    XCTAssertEqual(layout.rubberBand(100), 100)
+    XCTAssertLessThan(layout.rubberBand(low - 500), low)
+    XCTAssertGreaterThan(layout.rubberBand(low - 500), low - 34)
+    XCTAssertGreaterThan(layout.rubberBand(high + 500), high)
+    XCTAssertLessThan(layout.rubberBand(high + 500), high + 34)
+    XCTAssertLessThan(layout.rubberBand(high + 10), layout.rubberBand(high + 50))
+  }
 }

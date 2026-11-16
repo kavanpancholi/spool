@@ -51,6 +51,18 @@ public struct BarLayout: Equatable, Sendable {
     groupStarts[group]...groupEnds[group]
   }
 
+  public func rubberBand(_ x: Double) -> Double {
+    let low = padding + icon / 2
+    let high = width - padding - icon / 2
+    let reach = icon
+    func stretch(_ overshoot: Double) -> Double {
+      (1 - 1 / (overshoot * 0.55 / reach + 1)) * reach
+    }
+    if x < low { return low - stretch(low - x) }
+    if x > high { return high + stretch(x - high) }
+    return x
+  }
+
   public func drop(atX x: Double, dragging: (group: Int, index: Int)) -> BarDrop {
     guard !groupCounts.isEmpty else { return BarDrop(group: 0, index: 0) }
     let group = groupCounts.indices.first { x < groupEnds[$0] + groupGap / 2 } ?? groupCounts.count - 1

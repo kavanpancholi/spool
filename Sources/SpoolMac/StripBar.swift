@@ -89,6 +89,7 @@ struct BarView: View {
     .frame(width: layout.width, height: BarMetrics.pillHeight)
     .animation(.easeOut(duration: 0.15), value: model.groups)
     .animation(.easeOut(duration: 0.15), value: drag?.drop)
+    .animation(.spring(response: 0.3, dampingFraction: 0.72), value: drag?.released)
     .onChange(of: model.groups) { _ in drag = nil }
   }
 
@@ -122,7 +123,7 @@ struct BarView: View {
       .gesture(
         DragGesture(minimumDistance: 5, coordinateSpace: .named("bar"))
           .onChanged { value in
-            let x = center + value.translation.width
+            let x = layout.rubberBand(center + value.translation.width)
             let drop = layout.drop(atX: x, dragging: (group, index))
             if drag == nil { model.onHover(nil, 0) }
             drag = TileDrag(id: tile.id, group: group, index: index, x: x, drop: drop)
