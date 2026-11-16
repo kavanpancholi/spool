@@ -91,7 +91,7 @@ All use ⌃⌥ (Control-Option). Hold ⌃⌥ for a moment to see them on screen.
   and Spool switches to its workspace. Session restore keeps them.
 - The focused window gets a border in your accent colour. Settings → Layout
   can turn it off, change its width or corner radius, or dim the other windows.
-  The corner follows the window's shape on macOS 26.
+  The corner matches macOS 26 windows (17pt), or 10pt for apps built for older macOS.
 
 - Off-screen windows are parked in a bottom corner, away from other
   displays. Spool never minimises or hides them.

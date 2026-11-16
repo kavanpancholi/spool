@@ -70,7 +70,7 @@ final class Decorations {
     let panel = Self.makePanel()
     let view = NSView()
     view.wantsLayer = true
-    view.layer?.cornerCurve = .continuous
+    view.layer?.cornerCurve = .circular
     panel.contentView = view
     return panel
   }
@@ -102,7 +102,7 @@ private final class BorderView: NSView {
   func apply(width: CGFloat, radius: CGFloat) {
     layer?.borderWidth = width
     layer?.cornerRadius = radius + width
-    layer?.cornerCurve = .continuous
+    layer?.cornerCurve = .circular
     layer?.borderColor = NSColor.controlAccentColor.cgColor
   }
 }

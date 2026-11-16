@@ -54,10 +54,8 @@ enum AX {
   }
 
   static func cornerRadius(of window: AXUIElement) -> Double {
-    guard #available(macOS 26, *) else { return 10 }
-    let children: [AXUIElement] = value(window, kAXChildrenAttribute) ?? []
-    let hasToolbar = children.contains { (value($0, kAXRoleAttribute) as String?) == kAXToolbarRole }
-    return hasToolbar ? 26 : 16
+    guard #available(macOS 26, *), (AppSDK.majorVersion(of: pid(of: window)) ?? 0) >= 26 else { return 10 }
+    return 17
   }
 
   static func windows(of app: AXUIElement) -> [AXUIElement] {
