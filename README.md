@@ -70,10 +70,12 @@ All use ⌃⌥ (Control-Option).
 - With Screen Recording allowed, the strip slides as one picture: Spool shows
   snapshots of the windows while it moves, clipped at each screen edge, then
   moves the real windows once it stops.
-- Windows keep their size and slide off screen edges. At an edge shared with
-  another display, a window parks once more than half of it would cross:
-  with "Displays have separate Spaces" on (the macOS default), macOS draws a
-  window on one display only and would otherwise jump it across.
+- Windows keep their size and slide off screen edges. While Spool runs, it
+  tells macOS your side-by-side displays sit corner to corner, so a window
+  sliding off one screen has no neighbour to jump onto. The pointer still
+  crosses at the edges you set in System Settings, and opening System Settings
+  shows your real layout. macOS puts it back when Spool stops, even after a
+  crash. Turn it off with "Keep windows from spilling onto other displays".
 - After a scroll the strip glides to the nearest window edge and focuses the
   leftmost window that is fully on screen.
 - Each display, and each macOS Space, has its own strip. Or turn on "One
