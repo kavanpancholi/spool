@@ -523,7 +523,6 @@ public final class WindowManager {
     let focused = window.isPrompt || (frontmost && focusedElement(of: pid).map { CFEqual($0, element) } == true)
     guard let stripDisplay = self.display(for: key) else { return }
     var strip = strips[key] ?? Strip()
-    let geometry = geometry(stripDisplay)
     strip.insert(window.id, width: newColumnWidth(window, frame, stripDisplay), focus: focused)
     if window.isPrompt, let index = strip.columnIndex(of: window.id) {
       strip.columns[index].fixedHeight = frame.height
