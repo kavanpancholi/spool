@@ -70,10 +70,4 @@ final class InputTests: XCTestCase {
     XCTAssertEqual(try JSONDecoder().decode(SpoolSettings.self, from: Data(current.utf8)).thumbWheel.snapDelay, 0.2)
   }
 
-  func test_settings_before_version_three_turn_smooth_slides_off() throws {
-    let old = #"{"version": 2, "smoothSlides": true}"#
-    XCTAssertFalse(try JSONDecoder().decode(SpoolSettings.self, from: Data(old.utf8)).smoothSlides)
-    let current = #"{"version": 3, "smoothSlides": true}"#
-    XCTAssertTrue(try JSONDecoder().decode(SpoolSettings.self, from: Data(current.utf8)).smoothSlides)
-  }
 }

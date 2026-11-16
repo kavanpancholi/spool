@@ -70,7 +70,6 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
   public var centerMode = CenterMode.never
   public var animate = true
   public var showBar = true
-  public var smoothSlides = false
   public var spanDisplays = false
   public var isolateDisplays = true
   public var focusBorder = true
@@ -96,7 +95,6 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
     centerMode = try c.decodeIfPresent(CenterMode.self, forKey: .centerMode) ?? defaults.centerMode
     animate = try c.decodeIfPresent(Bool.self, forKey: .animate) ?? defaults.animate
     showBar = try c.decodeIfPresent(Bool.self, forKey: .showBar) ?? defaults.showBar
-    smoothSlides = try c.decodeIfPresent(Bool.self, forKey: .smoothSlides) ?? defaults.smoothSlides
     spanDisplays = try c.decodeIfPresent(Bool.self, forKey: .spanDisplays) ?? defaults.spanDisplays
     isolateDisplays = try c.decodeIfPresent(Bool.self, forKey: .isolateDisplays) ?? defaults.isolateDisplays
     focusBorder = try c.decodeIfPresent(Bool.self, forKey: .focusBorder) ?? defaults.focusBorder
@@ -111,9 +109,6 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
     let savedVersion = try c.decodeIfPresent(Int.self, forKey: .version) ?? 1
     if savedVersion < 2 {
       thumbWheel.snapDelay = max(thumbWheel.snapDelay, defaults.thumbWheel.snapDelay)
-    }
-    if savedVersion < 3 {
-      smoothSlides = false
     }
     version = Self.currentVersion
   }

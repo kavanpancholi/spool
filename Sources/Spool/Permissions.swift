@@ -4,29 +4,20 @@ import SwiftUI
 
 final class PermissionsModel: ObservableObject {
   @Published private(set) var accessibility = AXIsProcessTrusted()
-  @Published private(set) var screenRecording = CGPreflightScreenCaptureAccess()
-  var needsScreenRecording: () -> Bool = { false }
 
   var allGranted: Bool {
-    accessibility && (screenRecording || !needsScreenRecording())
+    accessibility
   }
 
   func refresh() {
     let accessibility = AXIsProcessTrusted()
-    let screenRecording = CGPreflightScreenCaptureAccess()
     if accessibility != self.accessibility { self.accessibility = accessibility }
-    if screenRecording != self.screenRecording { self.screenRecording = screenRecording }
   }
 
   func requestAccessibility() {
     let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
     AXIsProcessTrustedWithOptions(options)
     open("Privacy_Accessibility")
-  }
-
-  func requestScreenRecording() {
-    CGRequestScreenCaptureAccess()
-    open("Privacy_ScreenCapture")
   }
 
   private func open(_ pane: String) {
@@ -50,22 +41,11 @@ struct PermissionsView: View {
         granted: model.accessibility,
         action: model.requestAccessibility
       )
-      if model.needsScreenRecording() {
-        PermissionRow(
-          title: "Screen Recording",
-          detail: "Takes window snapshots so the strip slides smoothly across screens. Nothing is saved or sent anywhere.",
-          granted: model.screenRecording,
-          action: model.requestScreenRecording
-        )
-      }
       Text("Spool starts on its own once Accessibility has a tick. If a switch is already on in System Settings but the row still shows a cross, select Spool there, remove it with −, and add it again. Development builds count as a new app after each rebuild.")
         .font(.callout)
         .foregroundStyle(.secondary)
         .fixedSize(horizontal: false, vertical: true)
       HStack {
-        Text("Screen Recording often needs a restart to take effect.")
-          .font(.caption)
-          .foregroundStyle(.secondary)
         Spacer()
         Button("Restart Spool", action: restart)
       }

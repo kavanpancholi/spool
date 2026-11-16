@@ -29,10 +29,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     statusItem.button?.target = self
     statusItem.button?.action = #selector(openMenu)
     statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
-    permissions.needsScreenRecording = { [store] in
-      if #available(macOS 14, *) { return store.settings.smoothSlides }
-      return false
-    }
     rebuildMenu()
 
     if permissions.accessibility && store.settings.enabled { manager.start() }

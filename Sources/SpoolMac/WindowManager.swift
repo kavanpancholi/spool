@@ -41,8 +41,6 @@ public final class WindowManager {
   private let input = InputTap()
   private let hotKeys = HotKeys()
   private let bars = BarController()
-  private let snapshots = Snapshots()
-  private let overlay = SlideOverlay()
   private let staircase = DisplayStaircase()
   private let decorations = Decorations()
   private let modifierHold = ModifierHold()
@@ -52,9 +50,7 @@ public final class WindowManager {
   private var decorateQueued = false
   private let sessionStore = SessionStore()
   private var pendingRestore = false
-  private var sliding: Set<StripKey> = []
   private var swiping: Set<StripKey> = []
-  private var snapshotTimer: Timer?
   private var barRefreshQueued = false
   private let focusQueue = DispatchQueue(label: "Spool focus", qos: .userInteractive)
   private let focusGeneration = Generation()
@@ -118,7 +114,6 @@ public final class WindowManager {
     for app in NSWorkspace.shared.runningApplications where Self.isManageable(app) {
       track(app, discover: false)
     }
-    if settings.smoothSlides { snapshots.requestPermissionOnce() }
     staircase.start { [weak self] in self?.scheduleRebuild(after: 0.1) }
     pendingRestore = true
     if settings.cheatsheetOnHold { modifierHold.start() }
@@ -153,11 +148,7 @@ public final class WindowManager {
     decorations.hideAll()
     focusedID = nil
     bars.hideAll()
-    overlay.hideAll()
-    sliding.removeAll()
     swiping.removeAll()
-    snapshotTimer?.invalidate()
-    snapshots.clear()
     observers.removeAll()
     windows.values.forEach { writer.forget($0.id) }
     windows.removeAll()
@@ -189,7 +180,6 @@ public final class WindowManager {
     input.thumbWheel = settings.thumbWheel
     input.trackpad = settings.trackpad
     guard isRunning else { return }
-    if settings.smoothSlides { snapshots.requestPermissionOnce() }
     if settings.cheatsheetOnHold { modifierHold.start() } else { modifierHold.stop() }
     rebuild(resetOrder: false)
     decorate(reorder: true)
@@ -472,7 +462,6 @@ public final class WindowManager {
     corrections[id] = nil
     manuallyFloating.remove(id)
     writer.forget(id)
-    snapshots.forget(id)
     focusHistory.forget(id)
     if focusedID == id { focusedID = nil }
     scheduleDecorate()
@@ -509,7 +498,6 @@ public final class WindowManager {
     }
     let restoring = pendingRestore
     pendingRestore = false
-    refreshSnapshots(after: 0.6)
     let fresh = Display.current()
     if fresh != displays { forgetWrittenFrames() }
     displays = fresh
@@ -614,7 +602,6 @@ public final class WindowManager {
 
   private func syncFocus() {
     scheduleBarRefresh()
-    refreshSnapshots(after: 1.0)
     guard isRunning else { return }
     let window = focusedManagedWindow()
     if let id = window?.id { focusHistory.record(id) }
@@ -761,7 +748,7 @@ public final class WindowManager {
       var spring = springs[key] ?? Spring(position: value)
       spring.jump(to: value)
       springs[key] = spring
-      present(key, scroll: value)
+      apply(key, scroll: value)
     case .ended:
       swiping.remove(key)
       settle(key, snap: true)
@@ -801,71 +788,11 @@ public final class WindowManager {
       spring.setStiffness(soft ? 220 : 900)
       spring.target = strip.scroll
       springs[key] = spring
-      present(key, scroll: spring.position)
+      apply(key, scroll: spring.position)
       startAnimating()
     } else {
       springs[key] = Spring(position: strip.scroll)
       apply(key, scroll: strip.scroll)
-      finishSlide(key)
-    }
-  }
-
-  private func present(_ key: StripKey, scroll: Double) {
-    guard beginSlide(key), let strip = strips[key], let display = display(for: key) else {
-      apply(key, scroll: scroll)
-      return
-    }
-    var unclipped = context(display)
-    unclipped.otherDisplays = []
-    let frames = strip.layout(unclipped, scroll: scroll).compactMap { id, placement -> (id: WindowID, frame: CGRect, snapshot: Snapshot?)? in
-      guard placement.isVisible, windows[id] != nil else { return nil }
-      return (id, placement.frame, snapshots.windows[id])
-    }
-    for surface in surfaces(of: display) {
-      overlay.update(on: surface, frames: frames.filter { $0.frame.intersects(surface.visibleFrame) })
-    }
-  }
-
-  private func surfaces(of display: Display) -> [Display] {
-    display.isSpan ? spanParts : [display]
-  }
-
-  private func beginSlide(_ key: StripKey) -> Bool {
-    if sliding.contains(key) { return true }
-    guard settings.smoothSlides, snapshots.isAvailable, let display = display(for: key) else { return false }
-    let parts = surfaces(of: display)
-    let wallpapers = parts.compactMap { snapshots.wallpapers[$0.uuid] }
-    guard wallpapers.count == parts.count else { return false }
-    zip(parts, wallpapers).forEach { overlay.show(on: $0, wallpaper: $1) }
-    sliding.insert(key)
-    decorations.hideAll()
-    return true
-  }
-
-  private func finishSlide(_ key: StripKey) {
-    guard sliding.contains(key), let strip = strips[key] else { return }
-    apply(key, scroll: strip.scroll)
-    writer.whenIdle { [weak self] in
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self] in
-        guard let self, self.sliding.contains(key), self.springs[key]?.isSettled != false, !self.swiping.contains(key) else { return }
-        self.sliding.remove(key)
-        self.decorate(reorder: true)
-        if let display = self.display(for: key) {
-          self.surfaces(of: display).forEach { self.overlay.hide($0.uuid) }
-        }
-        self.refreshSnapshots(after: 0.3)
-      }
-    }
-  }
-
-  private func refreshSnapshots(after delay: TimeInterval) {
-    guard settings.smoothSlides else { return }
-    snapshotTimer?.invalidate()
-    snapshotTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-      guard let self, self.isRunning, self.sliding.isEmpty else { return }
-      let ids = Set(self.activeKeys.values.flatMap { self.strips[$0]?.windows ?? [] })
-      let targets = ids.compactMap { id in self.windows[id]?.cgID.map { (id: id, cgID: $0) } }
-      self.snapshots.refresh(targets, displays: self.displays)
     }
   }
 
@@ -903,9 +830,8 @@ public final class WindowManager {
       springs[key] = spring
       if spring.isSettled {
         apply(key, scroll: spring.position)
-        finishSlide(key)
       } else {
-        present(key, scroll: spring.position)
+        apply(key, scroll: spring.position)
         moving = true
       }
     }
@@ -1031,7 +957,7 @@ public final class WindowManager {
 
   private func decorate(reorder: Bool) {
     let fullScreen = displays.contains { Spaces.isFullScreen(displayUUID: $0.uuid) }
-    guard isRunning, sliding.isEmpty, !fullScreen, settings.focusBorder || settings.dimInactive else {
+    guard isRunning, !fullScreen, settings.focusBorder || settings.dimInactive else {
       decorations.hideAll()
       return
     }

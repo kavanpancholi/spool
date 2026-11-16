@@ -17,8 +17,6 @@ the app under the pointer.
 
 - macOS 13 Ventura or later, Apple silicon
 - Accessibility permission (Spool moves windows and reads scroll and swipe input)
-- Screen Recording permission, only if you turn on smooth slides across
-  screens, which use window snapshots while the strip moves
 
 ## Build and run
 
@@ -29,8 +27,7 @@ make install  # copies it to ~/Applications
 ```
 
 Spool lives in the menu bar. It needs Accessibility, and starts on its own
-as soon as you grant it. Smooth slides across screens are off by default;
-turning them on in Settings also asks for Screen Recording.
+as soon as you grant it.
 
 ## Mouse and trackpad
 
@@ -76,9 +73,6 @@ All use ⌃⌥ (Control-Option). Hold ⌃⌥ for a moment to see them on screen.
 
 - Off-screen windows are parked in a bottom corner, away from other
   displays. Spool never minimises or hides them.
-- With Screen Recording allowed, the strip slides as one picture: Spool shows
-  snapshots of the windows while it moves, clipped at each screen edge, then
-  moves the real windows once it stops.
 - Windows keep their size and slide off screen edges. While Spool runs, it
   tells macOS your side-by-side displays sit corner to corner, so a window
   sliding off one screen has no neighbour to jump onto. The pointer still
@@ -90,8 +84,9 @@ All use ⌃⌥ (Control-Option). Hold ⌃⌥ for a moment to see them on screen.
 - Each display, and each macOS Space, has its own strip. Or turn on "One
   strip across all displays" for a single strip over side-by-side screens.
   With "Displays have separate Spaces" off, real windows slide over the seam.
-  With it on, smooth slides carry the motion and the strip never rests with a
-  window across the seam. Drag a window onto
+  With it on, macOS draws each window on one display at a time, so windows
+  jump at the seam, and the strip never rests with a window across it. Drag a
+  window onto
   another display, or press ⌃⌥N, to move it to that display's strip.
 - macOS permission and password prompts get their own column next to the
   focused window, at their own size, so tiled windows never hide them.

@@ -43,15 +43,14 @@ private struct GeneralTab: View {
       }
       Toggle("Animate the strip", isOn: $store.settings.animate)
       Toggle("Show window bar at the bottom", isOn: $store.settings.showBar)
-      Toggle("Smooth slides across screens (uses Screen Recording)", isOn: $store.settings.smoothSlides)
       Toggle("Keep windows from spilling onto other displays", isOn: $store.settings.isolateDisplays)
         .disabled(store.settings.spanDisplays)
       Text("While Spool runs, macOS sees your displays corner to corner, so a half-visible window cannot jump to the next screen. The pointer still crosses where you set it in System Settings. Off while one strip spans all displays.")
         .font(.caption)
         .foregroundStyle(.secondary)
       Toggle("One strip across all displays", isOn: $store.settings.spanDisplays)
-      if store.settings.spanDisplays && !store.settings.smoothSlides {
-        Text("macOS draws a window on one display at a time while “Displays have separate Spaces” is on. Turn on smooth slides so windows glide across the seam instead of jumping.")
+      if store.settings.spanDisplays {
+        Text("Turn off “Displays have separate Spaces” in System Settings → Desktop & Dock and log out. While it is on, macOS draws a window on one display at a time, so windows jump at the seam.")
           .font(.caption)
           .foregroundStyle(.secondary)
       }
