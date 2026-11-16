@@ -272,7 +272,10 @@ public final class WindowManager {
       self?.syncFocus()
     }
     for name in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didHideApplicationNotification, NSWorkspace.didUnhideApplicationNotification] {
-      on(center, name) { [weak self] _ in self?.scheduleRebuild(after: 0.25) }
+      on(center, name) { [weak self] _ in
+        self?.scheduleBarRefresh()
+        self?.scheduleRebuild(after: 0.25)
+      }
     }
     for name in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification, NSWorkspace.sessionDidBecomeActiveNotification] {
       on(center, name) { [weak self] _ in self?.scheduleRebuild(after: 1.0) }
@@ -1007,7 +1010,12 @@ public final class WindowManager {
         }
         return BarGroup(displayID: display.uuid, tiles: tiles + minimized)
       }
-    bars.update(on: displays.first(where: \.isPrimary), groups: groups)
+    let primary = displays.first(where: \.isPrimary)
+    guard let primary, !Spaces.isFullScreen(displayUUID: primary.uuid) else {
+      bars.hideAll()
+      return
+    }
+    bars.update(on: primary, groups: groups)
   }
 
   private func reveal(_ id: WindowID) {

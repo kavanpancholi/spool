@@ -106,6 +106,21 @@ enum Spaces {
     return current(connection(), "Main" as CFString)
   }
 
+  private typealias SpaceType = @convention(c) (Int32, UInt64) -> Int32
+
+  private static let spaceType: SpaceType? = {
+    guard let handle = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_LAZY),
+      let symbol = dlsym(handle, "CGSSpaceGetType")
+    else { return nil }
+    return unsafeBitCast(symbol, to: SpaceType.self)
+  }()
+
+  static func isFullScreen(displayUUID: String) -> Bool {
+    guard let (connection, _) = functions, let spaceType else { return false }
+    let space = currentSpace(displayUUID: displayUUID)
+    return space != 0 && spaceType(connection(), space) == 4
+  }
+
   static func onScreenWindowIDs() -> Set<CGWindowID> {
     guard let info = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
       return []
