@@ -50,6 +50,8 @@ public final class WindowManager {
   private var focusHistory = FocusHistory()
   private var focusedID: WindowID?
   private var decorateQueued = false
+  private let sessionStore = SessionStore()
+  private var pendingRestore = false
   private var sliding: Set<StripKey> = []
   private var swiping: Set<StripKey> = []
   private var snapshotTimer: Timer?
@@ -118,6 +120,7 @@ public final class WindowManager {
     }
     if settings.smoothSlides { snapshots.requestPermissionOnce() }
     staircase.start { [weak self] in self?.scheduleRebuild(after: 0.1) }
+    pendingRestore = true
     if settings.cheatsheetOnHold { modifierHold.start() }
     rebuild(resetOrder: true)
     displayWatch = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
@@ -141,6 +144,8 @@ public final class WindowManager {
     displayWatch = nil
     for (center, token) in workspaceTokens { center.removeObserver(token) }
     workspaceTokens.removeAll()
+    saveSession()
+    sessionStore.save()
     restoreAllWindows()
     staircase.stop()
     modifierHold.stop()
@@ -502,6 +507,8 @@ public final class WindowManager {
       scheduleRebuild(after: 0.3)
       return
     }
+    let restoring = pendingRestore
+    pendingRestore = false
     refreshSnapshots(after: 0.6)
     let fresh = Display.current()
     if fresh != displays { forgetWrittenFrames() }
@@ -558,6 +565,9 @@ public final class WindowManager {
       let entries = (found[key] ?? []).sorted { $0.1.minX < $1.1.minX }
       let ids = Set(entries.map(\.0.id))
       var strip = resetOrder ? Strip() : (strips[key] ?? Strip())
+      if restoring, let saved = sessionStore.session.strips[key.display] {
+        strip = saved.restore(entries.map { LiveWindow(id: $0.0.id, cgID: $0.0.cgID, bundleID: $0.0.bundleID) })
+      }
       for id in strip.windows where !ids.contains(id) { strip.remove(id) }
       for (window, frame) in entries where !strip.contains(window.id) {
         for (otherKey, var other) in strips where otherKey != key && other.contains(window.id) {
@@ -1050,7 +1060,20 @@ public final class WindowManager {
     DispatchQueue.main.async { [weak self] in
       self?.barRefreshQueued = false
       self?.refreshBars()
+      self?.saveSession()
     }
+  }
+
+  private func saveSession() {
+    guard isRunning || !strips.isEmpty else { return }
+    var snapshot: [String: SessionStrip] = [:]
+    for key in Set(activeKeys.values) {
+      guard let strip = strips[key] else { continue }
+      snapshot[key.display] = SessionStrip(strip) { id in
+        self.windows[id].map { SessionWindow(cgID: $0.cgID, bundleID: $0.bundleID) }
+      }
+    }
+    sessionStore.update(snapshot)
   }
 
   private func refreshBars() {
