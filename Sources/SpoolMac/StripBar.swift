@@ -147,7 +147,7 @@ struct BarView: View {
               if drag?.id == tile.id && drag?.released == true { drag = nil }
             }
           },
-        including: tile.state == .tiled ? .all : .none
+        including: tile.state == .tiled ? .all : .subviews
       )
   }
 }
