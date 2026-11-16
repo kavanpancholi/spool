@@ -124,6 +124,42 @@ public struct Strip: Equatable, Sendable {
   }
 
   @discardableResult
+  public mutating func consumeOrExpel(_ direction: Direction) -> Bool {
+    guard let index = focusedColumn, columns.indices.contains(index), direction == .left || direction == .right,
+      let window = columns[index].focusedWindow, columns[index].fixedHeight == nil
+    else { return false }
+    let column = columns[index]
+    if column.windows.count > 1 {
+      columns[index].windows.removeAll { $0 == window }
+      columns[index].focusedRow = min(columns[index].focusedRow, columns[index].windows.count - 1)
+      let destination = direction == .left ? index : index + 1
+      columns.insert(Column(windows: [window], width: column.width), at: destination)
+      focusedColumn = destination
+      return true
+    }
+    let neighbour = direction == .left ? index - 1 : index + 1
+    guard columns.indices.contains(neighbour), columns[neighbour].fixedHeight == nil else { return false }
+    columns[neighbour].windows.append(window)
+    columns[neighbour].focusedRow = columns[neighbour].windows.count - 1
+    columns.remove(at: index)
+    focusedColumn = direction == .left ? neighbour : neighbour - 1
+    return true
+  }
+
+  @discardableResult
+  public mutating func moveWithinColumn(_ direction: Direction) -> Bool {
+    guard let index = focusedColumn, columns.indices.contains(index) else { return false }
+    let row = columns[index].focusedRow
+    let target = direction == .up ? row - 1 : row + 1
+    guard direction == .up || direction == .down, columns[index].windows.indices.contains(row),
+      columns[index].windows.indices.contains(target)
+    else { return false }
+    columns[index].windows.swapAt(row, target)
+    columns[index].focusedRow = target
+    return true
+  }
+
+  @discardableResult
   public mutating func focus(window: WindowID) -> Bool {
     guard let index = columnIndex(of: window) else { return false }
     let row = columns[index].windows.firstIndex(of: window) ?? 0

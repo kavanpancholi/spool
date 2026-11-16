@@ -56,6 +56,8 @@ All use ⌃⌥ (Control-Option). Hold ⌃⌥ for a moment to see them on screen.
 | Back to the previous window | ⌃⌥⇥ |
 | Move window | ⌃⌥⇧ H L or ← → |
 | Move window to start or end | ⌃⌥⇧⌘ ← → |
+| Stack into the left or right column, or take out of a stack | ⌃⌥ [ ] |
+| Move window up or down in its stack | ⌃⌥⇧ K J or ↑ ↓ |
 | Cycle preset widths | ⌃⌥R |
 | Full width | ⌃⌥F |
 | Centre column | ⌃⌥C |

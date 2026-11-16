@@ -31,6 +31,8 @@ public enum KeyCode {
   public static let q: UInt32 = 12
   public static let t: UInt32 = 17
   public static let tab: UInt32 = 48
+  public static let leftBracket: UInt32 = 33
+  public static let rightBracket: UInt32 = 30
 
   public static func name(_ code: UInt32) -> String {
     switch code {
@@ -51,6 +53,8 @@ public enum KeyCode {
     case q: "Q"
     case t: "T"
     case tab: "⇥"
+    case leftBracket: "["
+    case rightBracket: "]"
     default:
       if let index = digits.firstIndex(of: code) { "\(index + 1)" } else { "#\(code)" }
     }
@@ -95,6 +99,8 @@ extension Shortcut {
       list.append(Shortcut(key, base, .focusIndex(offset + 1)))
     }
     list.append(Shortcut(KeyCode.tab, base, .focusPrevious))
+    list.append(Shortcut(KeyCode.leftBracket, base, .consumeOrExpel(.left)))
+    list.append(Shortcut(KeyCode.rightBracket, base, .consumeOrExpel(.right)))
     list.append(Shortcut(KeyCode.r, base, .cycleWidth))
     list.append(Shortcut(KeyCode.f, base, .fullWidth))
     list.append(Shortcut(KeyCode.c, base, .center))

@@ -13,6 +13,7 @@ public enum Command: Hashable, Codable, Sendable {
   case move(Direction)
   case moveFirst
   case moveLast
+  case consumeOrExpel(Direction)
   case cycleWidth
   case wider
   case narrower
@@ -32,6 +33,7 @@ public enum Command: Hashable, Codable, Sendable {
     case .move(let d): "Move window \(d.rawValue)"
     case .moveFirst: "Move window to start"
     case .moveLast: "Move window to end"
+    case .consumeOrExpel(let d): d == .left ? "Stack into the left column, or take out to the left" : "Stack into the right column, or take out to the right"
     case .cycleWidth: "Cycle width"
     case .wider: "Wider"
     case .narrower: "Narrower"
@@ -88,7 +90,9 @@ extension Strip {
       columns.swapAt(focused, focused + 1)
       focusedColumn = focused + 1
     case .move(.up), .move(.down):
-      break
+      if case .move(let direction) = command { moveWithinColumn(direction) }
+    case .consumeOrExpel(let direction):
+      guard consumeOrExpel(direction) else { return .unhandled }
     case .moveFirst:
       let column = columns.remove(at: focused)
       columns.insert(column, at: 0)
