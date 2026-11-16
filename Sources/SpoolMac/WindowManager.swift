@@ -321,7 +321,10 @@ public final class WindowManager {
       }
     }
     for name in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification, NSWorkspace.sessionDidBecomeActiveNotification] {
-      on(center, name) { [weak self] _ in self?.scheduleRebuild(after: 1.0) }
+      on(center, name) { [weak self] _ in self?.scheduleWakeRebuilds() }
+    }
+    on(DistributedNotificationCenter.default(), Notification.Name("com.apple.screenIsUnlocked")) { [weak self] _ in
+      self?.scheduleWakeRebuilds()
     }
     on(NotificationCenter.default, NSApplication.didChangeScreenParametersNotification) { [weak self] _ in
       self?.forgetWrittenFrames()
@@ -509,6 +512,11 @@ public final class WindowManager {
     lastTargets.removeAll()
   }
 
+  private static func screenIsLocked() -> Bool {
+    let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+    return (session?["CGSSessionScreenIsLocked"] as? Bool) ?? false
+  }
+
   private func scheduleRebuild(after delay: TimeInterval) {
     rebuildTimer?.invalidate()
     rebuildTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
@@ -516,8 +524,15 @@ public final class WindowManager {
     }
   }
 
+  private func scheduleWakeRebuilds() {
+    scheduleRebuild(after: 1.0)
+    DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { [weak self] in
+      self?.scheduleRebuild(after: 0)
+    }
+  }
+
   private func rebuild(resetOrder: Bool) {
-    guard isRunning else { return }
+    guard isRunning, !Self.screenIsLocked() else { return }
     if staircase.reconcile(enabled: settings.isolateDisplays && !settings.spanDisplays) {
       forgetWrittenFrames()
       scheduleRebuild(after: 0.3)
@@ -553,8 +568,13 @@ public final class WindowManager {
 
     let onScreen = Spaces.onScreenWindowIDs()
     var found: [StripKey: [(ManagedWindow, CGRect)]] = [:]
+    var unreadable: Set<pid_t> = []
     for (pid, observer) in observers {
-      for element in AX.windows(of: observer.app) {
+      guard let elements = AX.readWindows(of: observer.app) else {
+        unreadable.insert(pid)
+        continue
+      }
+      for element in elements {
         let window = register(element, pid: pid)
         switch tileability(window) {
         case .tile:
@@ -583,7 +603,7 @@ public final class WindowManager {
       if restoring, let saved = sessionStore.session.strips[key.display] {
         strip = saved.restore(entries.map { LiveWindow(id: $0.0.id, cgID: $0.0.cgID, bundleID: $0.0.bundleID) })
       }
-      for id in strip.windows where !ids.contains(id) { strip.remove(id) }
+      for id in strip.windows where !ids.contains(id) && !unreadable.contains(windows[id]?.pid ?? 0) { strip.remove(id) }
       for (window, frame) in entries where !strip.contains(window.id) {
         for (otherKey, var other) in strips where otherKey != key && other.contains(window.id) {
           other.remove(window.id)

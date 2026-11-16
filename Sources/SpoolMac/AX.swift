@@ -54,7 +54,16 @@ enum AX {
   }
 
   static func windows(of app: AXUIElement) -> [AXUIElement] {
-    value(app, kAXWindowsAttribute) ?? []
+    readWindows(of: app) ?? []
+  }
+
+  static func readWindows(of app: AXUIElement) -> [AXUIElement]? {
+    var raw: CFTypeRef?
+    switch AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &raw) {
+    case .success: return raw as? [AXUIElement] ?? []
+    case .noValue, .attributeUnsupported: return []
+    default: return nil
+    }
   }
 
   static func pid(of element: AXUIElement) -> pid_t {
