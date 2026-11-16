@@ -9,20 +9,20 @@ final class DisplayStaircase {
   private var applied: [UInt32: CGRect]?
   private var suspended = false
   private var activationToken: NSObjectProtocol?
+  private var settingsWatch: Timer?
+  private var onSuspendChange: (() -> Void)?
   private let log = Logger(subsystem: "io.github.kavanpancholi.spool", category: "displays")
 
   private static let systemSettings = "com.apple.systempreferences"
 
   func start(onSuspendChange: @escaping () -> Void) {
-    suspended = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == Self.systemSettings
+    self.onSuspendChange = onSuspendChange
+    suspended = Self.displaysPaneOpen()
+    watchSettings(NSWorkspace.shared.frontmostApplication)
     activationToken = NSWorkspace.shared.notificationCenter.addObserver(
       forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
     ) { [weak self] note in
-      let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-      let inSettings = app?.bundleIdentifier == Self.systemSettings
-      guard let self, inSettings != self.suspended else { return }
-      self.suspended = inSettings
-      onSuspendChange()
+      self?.watchSettings(note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)
     }
     router.start()
   }
@@ -30,9 +30,45 @@ final class DisplayStaircase {
   func stop() {
     if let activationToken { NSWorkspace.shared.notificationCenter.removeObserver(activationToken) }
     activationToken = nil
+    settingsWatch?.invalidate()
+    settingsWatch = nil
+    onSuspendChange = nil
     restore()
     router.stop()
   }
+
+  private func watchSettings(_ app: NSRunningApplication?) {
+    settingsWatch?.invalidate()
+    settingsWatch = nil
+    if app?.bundleIdentifier == Self.systemSettings {
+      settingsWatch = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+        self?.checkDisplaysPane()
+      }
+    }
+    checkDisplaysPane()
+  }
+
+  private func checkDisplaysPane() {
+    let open = Self.displaysPaneOpen()
+    guard open != suspended else { return }
+    suspended = open
+    onSuspendChange?()
+  }
+
+  private static func displaysPaneOpen() -> Bool {
+    guard let app = NSWorkspace.shared.frontmostApplication, app.bundleIdentifier == systemSettings else { return false }
+    let element = AXUIElementCreateApplication(app.processIdentifier)
+    guard let window: AXUIElement = AX.value(element, kAXFocusedWindowAttribute) else { return false }
+    let title: String? = AX.value(window, kAXTitleAttribute)
+    return title == displaysPaneTitle
+  }
+
+  private static let displaysPaneTitle: String = {
+    let bundle = Bundle(path: "/System/Library/PreferencePanes/Displays.prefPane")
+    return bundle?.localizedInfoDictionary?["CFBundleName"] as? String
+      ?? bundle?.infoDictionary?["CFBundleName"] as? String
+      ?? "Displays"
+  }()
 
   func reconcile(enabled: Bool) -> Bool {
     let current = Self.currentFrames()

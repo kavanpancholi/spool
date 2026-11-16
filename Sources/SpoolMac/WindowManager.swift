@@ -278,6 +278,7 @@ public final class WindowManager {
       on(center, name) { [weak self] _ in self?.scheduleRebuild(after: 1.0) }
     }
     on(NotificationCenter.default, NSApplication.didChangeScreenParametersNotification) { [weak self] _ in
+      self?.forgetWrittenFrames()
       self?.scheduleRebuild(after: 0.5)
     }
   }
@@ -455,6 +456,11 @@ public final class WindowManager {
     writer.invalidate(id)
   }
 
+  private func forgetWrittenFrames() {
+    writer.invalidateAll()
+    lastTargets.removeAll()
+  }
+
   private func scheduleRebuild(after delay: TimeInterval) {
     rebuildTimer?.invalidate()
     rebuildTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
@@ -465,11 +471,14 @@ public final class WindowManager {
   private func rebuild(resetOrder: Bool) {
     guard isRunning else { return }
     if staircase.reconcile(enabled: settings.isolateDisplays && !settings.spanDisplays) {
+      forgetWrittenFrames()
       scheduleRebuild(after: 0.3)
       return
     }
     refreshSnapshots(after: 0.6)
-    displays = Display.current()
+    let fresh = Display.current()
+    if fresh != displays { forgetWrittenFrames() }
+    displays = fresh
     activeKeys = [:]
     separateSpaces = !(UserDefaults(suiteName: "com.apple.spaces")?.bool(forKey: "spans-displays") ?? false)
     let included = displays.filter { !settings.excludedDisplayIDs.contains($0.uuid) }

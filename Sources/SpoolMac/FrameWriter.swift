@@ -48,6 +48,12 @@ final class FrameWriter {
     lock.unlock()
   }
 
+  func invalidateAll() {
+    lock.lock()
+    written.removeAll()
+    lock.unlock()
+  }
+
   func invalidate(_ id: WindowID) {
     lock.lock()
     written[id] = nil
