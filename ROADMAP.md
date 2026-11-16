@@ -27,7 +27,7 @@ Spool ships in four phases. Each phase is usable on its own.
 - [x] macOS permission and password prompts get their own column
 - [x] One strip across all side-by-side displays
 - [x] Window bar hides on full-screen Spaces
-- [x] Display staircase: while Spool runs, move side-by-side displays corner to corner so a part-visible window cannot spill onto the next screen. Pointer still crosses at the real edge. Put back when Spool stops or System Settings is open
+- [x] Display staircase: while Spool runs, move side-by-side displays corner to corner so a part-visible window cannot spill onto the next screen. Pointer still crosses at the real edge. Put back when Spool stops or the Displays pane is open
 
 ## Phase 2: columns
 
@@ -43,7 +43,8 @@ Spool ships in four phases. Each phase is usable on its own.
 - [ ] Keep original height mode
 - [ ] Set width to a percentage or point value, grow into free space
 - [ ] Per-display default and preset widths
-- [ ] Toggle a window between tiled and floating, focus floating windows
+- [x] Toggle a window between tiled and floating (⌃⌥T)
+- [ ] Focus floating windows
 
 ## Phase 3: polish
 
@@ -55,7 +56,7 @@ Spool ships in four phases. Each phase is usable on its own.
 - [ ] Rules match title or title regex, and set display, start width, open without focus, keep own size, force tiled
 - [ ] Centre modes: never, on overflow, always, centre the visible group
 - [x] Go back to the previous window
-- [ ] Recent windows switcher (⌃⌥Tab) across every display, with snapshots
+- [ ] Recent windows switcher across every display, with snapshots
 - [x] Shortcut cheatsheet when ⌃⌥ is held
 - [ ] Shortcut recorder with AZERTY, QWERTZ and Dvorak, several bindings per action
 - [ ] Mod key setting, Hyper key support
