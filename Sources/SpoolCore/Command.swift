@@ -14,6 +14,13 @@ public enum Command: Hashable, Codable, Sendable {
   case moveFirst
   case moveLast
   case consumeOrExpel(Direction)
+  case swap(Direction)
+  case taller
+  case shorter
+  case equalizeHeights
+  case cycleHeight
+  case keepOwnHeight
+  case focusFloating
   case cycleWidth
   case wider
   case narrower
@@ -33,6 +40,13 @@ public enum Command: Hashable, Codable, Sendable {
     case .move(let d): "Move window \(d.rawValue)"
     case .moveFirst: "Move window to start"
     case .moveLast: "Move window to end"
+    case .swap(let d): "Swap with the \(d.rawValue) column"
+    case .taller: "Taller"
+    case .shorter: "Shorter"
+    case .equalizeHeights: "Equal heights in the stack"
+    case .cycleHeight: "Cycle preset heights"
+    case .keepOwnHeight: "Keep own height or fill"
+    case .focusFloating: "Focus next floating window"
     case .consumeOrExpel(let d): d == .left ? "Stack into the left column, or take out to the left" : "Stack into the right column, or take out to the right"
     case .cycleWidth: "Cycle width"
     case .wider: "Wider"
@@ -93,6 +107,19 @@ extension Strip {
       if case .move(let direction) = command { moveWithinColumn(direction) }
     case .consumeOrExpel(let direction):
       guard consumeOrExpel(direction) else { return .unhandled }
+    case .swap(let direction):
+      guard swapWindow(direction) else { return .unhandled }
+    case .taller, .shorter:
+      let row = columns[focused].focusedRow
+      let step = command == .taller ? settings.heightStep : -settings.heightStep
+      columns[focused].setShare(columns[focused].shares[row] + step, row: row)
+    case .equalizeHeights:
+      columns[focused].heights = nil
+    case .cycleHeight:
+      let row = columns[focused].focusedRow
+      let current = columns[focused].shares[row]
+      let presets = [1.0 / 3.0, 0.5, 2.0 / 3.0]
+      columns[focused].setShare(presets.first { $0 > current + 0.01 } ?? presets[0], row: row)
     case .moveFirst:
       let column = columns.remove(at: focused)
       columns.insert(column, at: 0)
@@ -124,7 +151,7 @@ extension Strip {
     case .center:
       scroll = centeredScroll(column: focused, geometry)
       return CommandResult(handled: true, focusChanged: false, layoutChanged: true)
-    case .sendToNextDisplay, .toggleFloat, .toggleEnabled, .focusPrevious:
+    case .sendToNextDisplay, .toggleFloat, .toggleEnabled, .focusPrevious, .keepOwnHeight, .focusFloating:
       return .unhandled
     }
 

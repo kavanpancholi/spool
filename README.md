@@ -55,6 +55,12 @@ All use ⌃⌥ (Control-Option). Hold ⌃⌥ for a moment to see them on screen.
 | Move window to start or end | ⌃⌥⇧⌘ ← → |
 | Stack into the left or right column, or take out of a stack | ⌃⌥ [ ] |
 | Move window up or down in its stack | ⌃⌥⇧ K J or ↑ ↓ |
+| Swap with the window in the left or right column | ⌃⌥⇧ [ ] |
+| Taller or shorter in its stack | ⌃⌥⇧ = - |
+| Cycle preset heights (⅓, ½, ⅔) | ⌃⌥⇧R |
+| Equal heights in the stack | ⌃⌥E |
+| Keep the window's own height, or fill the column | ⌃⌥⇧F |
+| Focus the next floating window | ⌃⌥V |
 | Cycle preset widths | ⌃⌥R |
 | Full width | ⌃⌥F |
 | Centre column | ⌃⌥C |

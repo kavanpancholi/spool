@@ -199,6 +199,20 @@ public final class WindowManager {
       sendToNextDisplay(from: key)
     case .toggleFloat:
       toggleFloat()
+    case .keepOwnHeight:
+      guard let index = strip.focusedColumn, let id = strip.focusedWindow, let window = windows[id] else { return }
+      if strip.columns[index].fixedHeight != nil {
+        strip.columns[index].fixedHeight = nil
+      } else if strip.columns[index].windows.count == 1, let frame = AX.frame(window.element) {
+        strip.columns[index].fixedHeight = frame.height
+      } else {
+        return
+      }
+      strips[key] = strip
+      writer.invalidate(id)
+      relayout(key, animated: false)
+    case .focusFloating:
+      focusNextFloating()
     case .focusPrevious:
       let current = focusedManagedWindow()?.id
       if let id = focusHistory.previous(current: current, where: { windows[$0] != nil && !minimizedIDs.contains($0) }) {
@@ -211,6 +225,19 @@ public final class WindowManager {
       if result.layoutChanged { relayout(key, animated: true) }
       if result.focusChanged, let id = strip.focusedWindow { focus(id) }
     }
+  }
+
+  private func focusNextFloating() {
+    let tiled = Set(strips.values.flatMap(\.windows))
+    let onScreen = Spaces.onScreenWindowIDs()
+    let floating = windows.values
+      .filter { !tiled.contains($0.id) && !minimizedIDs.contains($0.id) && $0.cgID.map(onScreen.contains) == true }
+      .map(\.id)
+      .sorted()
+    guard !floating.isEmpty else { return }
+    let current = focusedManagedWindow()?.id
+    let next = current.flatMap { floating.firstIndex(of: $0) }.map { floating[($0 + 1) % floating.count] } ?? floating[0]
+    focus(next)
   }
 
   private func commandKey() -> StripKey? {
@@ -657,9 +684,19 @@ public final class WindowManager {
     corrections[window.id] = attempts
     if attempts > 4 { return }
 
-    if widthChanged, let index = strip.columnIndex(of: window.id) {
-      strip.columns[index].width = columnWidth(actual, geometry(display))
-      strip.columns[index].widthBeforeFullWidth = nil
+    if let index = strip.columnIndex(of: window.id) {
+      if widthChanged {
+        strip.columns[index].width = columnWidth(actual, geometry(display))
+        strip.columns[index].widthBeforeFullWidth = nil
+      }
+      let column = strip.columns[index]
+      if wasDragged, column.windows.count > 1, abs(actual.height - target.height) > 2, abs(actual.minX - target.minX) <= 2,
+        let row = column.windows.firstIndex(of: window.id)
+      {
+        let gaps = Double(column.windows.count - 1) * settings.innerGap
+        let available = geometry(display).usableHeight - gaps
+        strip.columns[index].setShare(actual.height / available, row: row)
+      }
       strips[key] = strip
     }
     writer.invalidate(window.id)
@@ -854,11 +891,10 @@ public final class WindowManager {
           let gap = settings.outerGap
           let geometry = StripGeometry(viewport: visible, innerGap: settings.innerGap, outerGap: gap)
           let width = min(geometry.points(forFraction: column.width), visible.width - 2 * gap)
-          let rows = Double(column.windows.count)
-          let rowHeight = ((geometry.usableHeight - (rows - 1) * settings.innerGap) / rows).rounded(.down)
-          let height = column.fixedHeight.map { min($0, rowHeight) } ?? rowHeight
+          let slot = column.rows(top: visible.minY + gap, height: geometry.usableHeight, gap: settings.innerGap)[row]
+          let height = column.fixedHeight.map { min($0, slot.height) } ?? slot.height
           let x = min(max(current.minX, visible.minX + gap), visible.maxX - gap - width)
-          let y = visible.minY + gap + Double(row) * (rowHeight + settings.innerGap)
+          let y = slot.y
           AX.setPosition(window.element, CGPoint(x: x, y: y))
           AX.setSize(window.element, CGSize(width: width, height: height))
           AX.setPosition(window.element, CGPoint(x: x, y: y))

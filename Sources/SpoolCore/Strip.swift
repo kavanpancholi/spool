@@ -9,6 +9,7 @@ public struct Column: Equatable, Sendable {
   public var width: Double
   public var widthBeforeFullWidth: Double?
   public var fixedHeight: Double?
+  public var heights: [Double]?
 
   public init(windows: [WindowID], width: Double) {
     self.windows = windows
@@ -17,6 +18,59 @@ public struct Column: Equatable, Sendable {
 
   public var focusedWindow: WindowID? {
     windows.indices.contains(focusedRow) ? windows[focusedRow] : windows.first
+  }
+
+  public static let minimumShare = 0.1
+
+  public var shares: [Double] {
+    guard let heights, heights.count == windows.count, windows.count > 1 else {
+      return Array(repeating: 1 / Double(max(1, windows.count)), count: windows.count)
+    }
+    let total = heights.reduce(0, +)
+    return heights.map { $0 / total }
+  }
+
+  public func rows(top: Double, height: Double, gap: Double) -> [(y: Double, height: Double)] {
+    let available = height - Double(max(0, windows.count - 1)) * gap
+    var y = top
+    return shares.map { share in
+      let row = (available * share).rounded(.down)
+      defer { y += row + gap }
+      return (y.rounded(), row)
+    }
+  }
+
+  public mutating func setShare(_ share: Double, row: Int) {
+    guard windows.count > 1, windows.indices.contains(row) else { return }
+    let limit = 1 - Self.minimumShare * Double(windows.count - 1)
+    let target = min(max(share, Self.minimumShare), limit)
+    var current = shares
+    let rest = 1 - current[row]
+    for index in current.indices where index != row {
+      current[index] = rest > 0 ? current[index] / rest * (1 - target) : (1 - target) / Double(windows.count - 1)
+      current[index] = max(current[index], Self.minimumShare)
+    }
+    current[row] = target
+    let total = current.reduce(0, +)
+    heights = current.map { $0 / total }
+  }
+
+  mutating func removeRow(_ row: Int) {
+    if var heights, heights.count == windows.count {
+      heights.remove(at: row)
+      self.heights = heights.count > 1 ? heights : nil
+    } else {
+      heights = nil
+    }
+    windows.remove(at: row)
+  }
+
+  mutating func swapRows(_ a: Int, _ b: Int) {
+    windows.swapAt(a, b)
+    if var heights, heights.count == windows.count {
+      heights.swapAt(a, b)
+      self.heights = heights
+    }
   }
 }
 
@@ -88,7 +142,7 @@ public struct Strip: Equatable, Sendable {
 
   public mutating func remove(_ window: WindowID) {
     guard let index = columnIndex(of: window) else { return }
-    columns[index].windows.removeAll { $0 == window }
+    if let row = columns[index].windows.firstIndex(of: window) { columns[index].removeRow(row) }
     columns[index].focusedRow = min(columns[index].focusedRow, max(0, columns[index].windows.count - 1))
     guard columns[index].windows.isEmpty else { return }
     columns.remove(at: index)
@@ -130,7 +184,7 @@ public struct Strip: Equatable, Sendable {
     else { return false }
     let column = columns[index]
     if column.windows.count > 1 {
-      columns[index].windows.removeAll { $0 == window }
+      columns[index].removeRow(columns[index].focusedRow)
       columns[index].focusedRow = min(columns[index].focusedRow, columns[index].windows.count - 1)
       let destination = direction == .left ? index : index + 1
       columns.insert(Column(windows: [window], width: column.width), at: destination)
@@ -140,6 +194,7 @@ public struct Strip: Equatable, Sendable {
     let neighbour = direction == .left ? index - 1 : index + 1
     guard columns.indices.contains(neighbour), columns[neighbour].fixedHeight == nil else { return false }
     columns[neighbour].windows.append(window)
+    columns[neighbour].heights = nil
     columns[neighbour].focusedRow = columns[neighbour].windows.count - 1
     columns.remove(at: index)
     focusedColumn = direction == .left ? neighbour : neighbour - 1
@@ -154,8 +209,24 @@ public struct Strip: Equatable, Sendable {
     guard direction == .up || direction == .down, columns[index].windows.indices.contains(row),
       columns[index].windows.indices.contains(target)
     else { return false }
-    columns[index].windows.swapAt(row, target)
+    columns[index].swapRows(row, target)
     columns[index].focusedRow = target
+    return true
+  }
+
+  @discardableResult
+  public mutating func swapWindow(_ direction: Direction) -> Bool {
+    guard let index = focusedColumn, columns.indices.contains(index), direction == .left || direction == .right else { return false }
+    let neighbour = direction == .left ? index - 1 : index + 1
+    guard columns.indices.contains(neighbour), columns[index].fixedHeight == nil, columns[neighbour].fixedHeight == nil else { return false }
+    let row = columns[index].focusedRow
+    let other = min(row, columns[neighbour].windows.count - 1)
+    guard columns[index].windows.indices.contains(row), other >= 0 else { return false }
+    let window = columns[index].windows[row]
+    columns[index].windows[row] = columns[neighbour].windows[other]
+    columns[neighbour].windows[other] = window
+    focusedColumn = neighbour
+    columns[neighbour].focusedRow = other
     return true
   }
 

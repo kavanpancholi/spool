@@ -33,6 +33,8 @@ public enum KeyCode {
   public static let tab: UInt32 = 48
   public static let leftBracket: UInt32 = 33
   public static let rightBracket: UInt32 = 30
+  public static let e: UInt32 = 14
+  public static let v: UInt32 = 9
 
   public static func name(_ code: UInt32) -> String {
     switch code {
@@ -55,6 +57,8 @@ public enum KeyCode {
     case tab: "⇥"
     case leftBracket: "["
     case rightBracket: "]"
+    case e: "E"
+    case v: "V"
     default:
       if let index = digits.firstIndex(of: code) { "\(index + 1)" } else { "#\(code)" }
     }
@@ -101,6 +105,14 @@ extension Shortcut {
     list.append(Shortcut(KeyCode.tab, base, .focusPrevious))
     list.append(Shortcut(KeyCode.leftBracket, base, .consumeOrExpel(.left)))
     list.append(Shortcut(KeyCode.rightBracket, base, .consumeOrExpel(.right)))
+    list.append(Shortcut(KeyCode.leftBracket, move, .swap(.left)))
+    list.append(Shortcut(KeyCode.rightBracket, move, .swap(.right)))
+    list.append(Shortcut(KeyCode.equal, move, .taller))
+    list.append(Shortcut(KeyCode.minus, move, .shorter))
+    list.append(Shortcut(KeyCode.e, base, .equalizeHeights))
+    list.append(Shortcut(KeyCode.r, move, .cycleHeight))
+    list.append(Shortcut(KeyCode.f, move, .keepOwnHeight))
+    list.append(Shortcut(KeyCode.v, base, .focusFloating))
     list.append(Shortcut(KeyCode.r, base, .cycleWidth))
     list.append(Shortcut(KeyCode.f, base, .fullWidth))
     list.append(Shortcut(KeyCode.c, base, .center))

@@ -33,18 +33,18 @@ Spool ships in four phases. Each phase is usable on its own.
 
 - [x] Stacks: several windows in one column, stack and pop out
 - [x] Consume or expel: join the stack on one side, or leave it as a new column
-- [ ] Swap a window with the same row of the next column
+- [x] Swap a window with the same row of the next column
 - [x] Move a window up or down inside its stack
-- [ ] Taller/shorter, equalise heights, preset stack heights
+- [x] Taller/shorter, equalise heights, preset stack heights, resize a stacked window with the mouse
 - [ ] Tabbed columns with a tab bar
 - [ ] Native macOS window tabs take one column
 - [ ] Pin a window to the left or right edge
 - [ ] Drag a window by its title bar to reorder: a band shows where it lands, holding near the screen edge scrolls the strip
-- [ ] Keep original height mode
+- [x] Keep original height per column
 - [ ] Set width to a percentage or point value, grow into free space
 - [ ] Per-display default and preset widths
 - [x] Toggle a window between tiled and floating (⌃⌥T)
-- [ ] Focus floating windows
+- [x] Focus floating windows
 
 ## Phase 3: polish
 

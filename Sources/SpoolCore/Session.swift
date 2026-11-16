@@ -16,6 +16,7 @@ public struct SessionColumn: Codable, Equatable, Sendable {
   public var width: Double
   public var widthBeforeFullWidth: Double?
   public var fixedHeight: Double?
+  public var heights: [Double]?
 }
 
 public struct SessionStrip: Codable, Equatable, Sendable {
@@ -61,7 +62,8 @@ extension SessionStrip {
         focusedRow: min(column.focusedRow, windows.count - 1),
         width: column.width,
         widthBeforeFullWidth: column.widthBeforeFullWidth,
-        fixedHeight: column.fixedHeight
+        fixedHeight: column.fixedHeight,
+        heights: windows.count == column.windows.count ? column.heights : nil
       ))
     }
     self.init(columns: columns, focusedColumn: focused)
@@ -86,6 +88,7 @@ extension SessionStrip {
       column.focusedRow = min(saved.focusedRow, windows.count - 1)
       column.widthBeforeFullWidth = saved.widthBeforeFullWidth
       column.fixedHeight = saved.fixedHeight
+      column.heights = windows.count == saved.windows.count ? saved.heights : nil
       if index == self.focusedColumn { focusedColumn = strip.columns.count }
       strip.columns.append(column)
     }

@@ -79,15 +79,15 @@ extension Strip {
     for (index, column) in columns.enumerated() {
       let width = geometry.points(forFraction: column.width).rounded()
       let x = (viewport.minX + lefts[index] - offset).rounded()
-      let count = Double(column.windows.count)
       let space = context.verticalSpace(forColumnCenter: x + width / 2)
-      let rowHeight = ((space.height - (count - 1) * geometry.innerGap) / count).rounded(.down)
+      let rows = column.rows(top: space.top, height: space.height, gap: geometry.innerGap)
       let columnRect = CGRect(x: x, y: space.top, width: width, height: space.height)
       let park = x + width <= viewport.minX || x >= viewport.maxX || context.isMostlyOnOtherDisplay(columnRect)
 
       for (row, window) in column.windows.enumerated() {
-        var y = (space.top + Double(row) * (rowHeight + geometry.innerGap)).rounded()
-        var height = rowHeight
+        var y = rows[row].y
+        var height = rows[row].height
+        let rowHeight = height
         if let fixed = column.fixedHeight, fixed < rowHeight {
           y += ((rowHeight - fixed) / 2).rounded()
           height = fixed

@@ -67,6 +67,7 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
   public var outerGap = 8.0
   public var widthPresets = [1.0 / 3.0, 0.5, 2.0 / 3.0]
   public var widthStep = 0.1
+  public var heightStep = 0.1
   public var centerMode = CenterMode.never
   public var animate = true
   public var showBar = true
@@ -92,6 +93,7 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
     outerGap = try c.decodeIfPresent(Double.self, forKey: .outerGap) ?? defaults.outerGap
     widthPresets = try c.decodeIfPresent([Double].self, forKey: .widthPresets) ?? defaults.widthPresets
     widthStep = try c.decodeIfPresent(Double.self, forKey: .widthStep) ?? defaults.widthStep
+    heightStep = try c.decodeIfPresent(Double.self, forKey: .heightStep) ?? defaults.heightStep
     centerMode = try c.decodeIfPresent(CenterMode.self, forKey: .centerMode) ?? defaults.centerMode
     animate = try c.decodeIfPresent(Bool.self, forKey: .animate) ?? defaults.animate
     showBar = try c.decodeIfPresent(Bool.self, forKey: .showBar) ?? defaults.showBar
