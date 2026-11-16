@@ -67,6 +67,8 @@ public final class WindowManager {
   private var separateSpaces = true
   private var strips: [StripKey: Strip] = [:]
   private var hidden: [StripKey: Workspaces] = [:]
+  private var appsWithTiles: [pid_t] = []
+  private static let appTileBase: WindowID = 1 << 62
   private var springs: [StripKey: Spring] = [:]
   private var lastTargets: [WindowID: CGRect] = [:]
   private var manuallyFloating: Set<WindowID> = []
@@ -158,6 +160,7 @@ public final class WindowManager {
     windows.removeAll()
     strips.removeAll()
     hidden.removeAll()
+    appsWithTiles.removeAll()
     springs.removeAll()
     activeKeys.removeAll()
     lastTargets.removeAll()
@@ -414,6 +417,8 @@ public final class WindowManager {
 
   private func forget(pid: pid_t) {
     observers[pid] = nil
+    appsWithTiles.removeAll { $0 == pid }
+    scheduleBarRefresh()
     let gone = windows.values.filter { $0.pid == pid }.map(\.id)
     gone.forEach { removeWindow($0) }
   }
@@ -1189,7 +1194,8 @@ public final class WindowManager {
           else { return nil }
           return BarTile(id: id, pid: window.pid, focused: false, minimized: true)
         }
-        return BarGroup(displayID: display.uuid, tiles: tiles + minimized)
+        let closed = display.isPrimary || display.isSpan ? windowlessAppTiles(beside: tiles + minimized) : []
+        return BarGroup(displayID: display.uuid, tiles: tiles + minimized + closed)
       }
     let primary = displays.first(where: \.isPrimary)
     guard let primary, !Spaces.isFullScreen(displayUUID: primary.uuid) else {
@@ -1199,7 +1205,33 @@ public final class WindowManager {
     bars.update(on: primary, groups: groups)
   }
 
+  private func windowlessAppTiles(beside tiles: [BarTile]) -> [BarTile] {
+    let shown = Set(tiles.map(\.pid))
+    let tiled = Set(strips.values.flatMap(\.windows) + hidden.values.flatMap(\.windows) + minimizedIDs).compactMap { windows[$0]?.pid }
+    for pid in tiled where !appsWithTiles.contains(pid) { appsWithTiles.append(pid) }
+    let busy = Set(tiled)
+    return appsWithTiles.compactMap { pid in
+      guard !busy.contains(pid), !shown.contains(pid), let app = NSRunningApplication(processIdentifier: pid), !app.isTerminated else { return nil }
+      return BarTile(id: Self.appTileBase | WindowID(UInt32(bitPattern: pid)), pid: pid, focused: false, minimized: true)
+    }
+  }
+
+  private func reopenApp(_ id: WindowID) -> Bool {
+    guard id & Self.appTileBase != 0 else { return false }
+    let pid = pid_t(bitPattern: UInt32(truncatingIfNeeded: id))
+    guard let app = NSRunningApplication(processIdentifier: pid) else { return true }
+    if let url = app.bundleURL {
+      let configuration = NSWorkspace.OpenConfiguration()
+      configuration.activates = true
+      NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+    } else {
+      app.activate()
+    }
+    return true
+  }
+
   private func reveal(_ id: WindowID) {
+    if reopenApp(id) { return }
     if minimizedIDs.contains(id), let window = windows[id] {
       AX.set(window.element, kAXMinimizedAttribute, false)
       focus(id)
@@ -1230,6 +1262,10 @@ public final class WindowManager {
   }
 
   private func label(for id: WindowID) -> String {
+    if id & Self.appTileBase != 0 {
+      let name = NSRunningApplication(processIdentifier: pid_t(bitPattern: UInt32(truncatingIfNeeded: id)))?.localizedName ?? ""
+      return "\(name) · no windows"
+    }
     guard let window = windows[id] else { return "" }
     let app = NSRunningApplication(processIdentifier: window.pid)?.localizedName ?? ""
     let title: String = AX.value(window.element, kAXTitleAttribute) ?? ""

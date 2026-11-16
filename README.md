@@ -83,6 +83,8 @@ All use ⌃⌥ (Control-Option). Hold ⌃⌥ for a moment to see them on screen.
   width for new windows too, or leave it empty so each keeps its own. Each
   display can have its own presets and new window width (Settings → Displays).
   The menu bar has Set Width with the presets and a custom value.
+- Close an app's last window and the app stays in the bar, dimmed, until it
+  quits. Click it to open the app again.
 - Each display has workspaces stacked top to bottom, with an empty one always
   waiting below the last. Leave an empty workspace and it goes away. Windows on
   other workspaces park in the screen corner. Focus one with ⌘Tab or the bar
