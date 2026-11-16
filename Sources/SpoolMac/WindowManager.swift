@@ -1186,13 +1186,13 @@ public final class WindowManager {
       .map { display in
         let strip = activeKeys[display.uuid].flatMap { strips[$0] } ?? Strip()
         let tiles = strip.windows.compactMap { id in
-          windows[id].map { BarTile(id: id, pid: $0.pid, focused: id == focused, minimized: false) }
+          windows[id].map { BarTile(id: id, pid: $0.pid, focused: id == focused, state: .tiled) }
         }
         let minimized = minimizedIDs.sorted().compactMap { id -> BarTile? in
           guard let window = windows[id], let frame = AX.frame(window.element),
             display.isSpan || self.display(containing: frame)?.uuid == display.uuid
           else { return nil }
-          return BarTile(id: id, pid: window.pid, focused: false, minimized: true)
+          return BarTile(id: id, pid: window.pid, focused: false, state: .minimized)
         }
         let closed = display.isPrimary || display.isSpan ? windowlessAppTiles(beside: tiles + minimized) : []
         return BarGroup(displayID: display.uuid, tiles: tiles + minimized + closed)
@@ -1212,7 +1212,7 @@ public final class WindowManager {
     let busy = Set(tiled)
     return appsWithTiles.compactMap { pid in
       guard !busy.contains(pid), !shown.contains(pid), let app = NSRunningApplication(processIdentifier: pid), !app.isTerminated else { return nil }
-      return BarTile(id: Self.appTileBase | WindowID(UInt32(bitPattern: pid)), pid: pid, focused: false, minimized: true)
+      return BarTile(id: Self.appTileBase | WindowID(UInt32(bitPattern: pid)), pid: pid, focused: false, state: .noWindows)
     }
   }
 

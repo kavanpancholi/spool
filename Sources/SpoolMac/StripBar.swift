@@ -2,11 +2,17 @@ import AppKit
 import SpoolCore
 import SwiftUI
 
+enum BarTileState: Equatable {
+  case tiled
+  case minimized
+  case noWindows
+}
+
 struct BarTile: Identifiable, Equatable {
   let id: WindowID
   let pid: pid_t
   let focused: Bool
-  let minimized: Bool
+  let state: BarTileState
 }
 
 struct BarGroup: Equatable {
@@ -141,7 +147,7 @@ struct BarView: View {
               if drag?.id == tile.id && drag?.released == true { drag = nil }
             }
           },
-        including: tile.minimized ? .none : .all
+        including: tile.state == .tiled ? .all : .none
       )
   }
 }
@@ -155,14 +161,23 @@ private struct TileView: View {
         .resizable()
         .interpolation(.high)
         .frame(width: BarMetrics.icon, height: BarMetrics.icon)
-        .opacity(tile.minimized ? 0.45 : 1)
+        .overlay(alignment: .bottomTrailing) {
+          if tile.state == .minimized {
+            Image(systemName: "minus.circle.fill")
+              .font(.system(size: 13, weight: .semibold))
+              .symbolRenderingMode(.palette)
+              .foregroundStyle(Color.white, Color.black.opacity(0.75))
+              .offset(x: 3, y: 3)
+          }
+        }
         .background(
           RoundedRectangle(cornerRadius: 9, style: .continuous)
             .fill(Color.white.opacity(tile.focused ? 0.22 : 0))
             .padding(-3)
         )
       Circle()
-        .fill(tile.minimized ? Color.clear : tile.focused ? Color.white : Color.gray.opacity(0.7))
+        .fill(tile.state == .tiled ? (tile.focused ? Color.white : Color.gray.opacity(0.7)) : Color.clear)
+        .overlay(Circle().stroke(Color.gray.opacity(tile.state == .noWindows ? 0.8 : 0), lineWidth: 1))
         .frame(width: BarMetrics.dot, height: BarMetrics.dot)
     }
     .contentShape(Rectangle())
