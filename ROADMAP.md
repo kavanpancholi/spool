@@ -26,31 +26,50 @@ Spool ships in four phases. Each phase is usable on its own.
 - [ ] Drag a window to another display to move it to that strip
 - [ ] macOS permission and password prompts get their own column
 - [ ] One strip across all side-by-side displays
+- [ ] Display staircase: while Spool runs, move side-by-side displays corner to corner so a part-visible window cannot spill onto the next screen. Pointer still crosses at the real edge. Put back when Spool stops or System Settings is open
 
 ## Phase 2: columns
 
 - [ ] Stacks: several windows in one column, stack and pop out
-- [ ] Taller/shorter, equalise heights
+- [ ] Consume or expel: join the stack on one side, or leave it as a new column
+- [ ] Swap a window with the same row of the next column
+- [ ] Taller/shorter, equalise heights, preset stack heights
 - [ ] Tabbed columns with a tab bar
 - [ ] Native macOS window tabs take one column
 - [ ] Pin a window to the left or right edge
-- [ ] Drag a window onto another column to reorder
+- [ ] Drag a window by its title bar to reorder: a band shows where it lands, holding near the screen edge scrolls the strip
 - [ ] Keep original height mode
+- [ ] Set width to a percentage or point value, grow into free space
+- [ ] Per-display default and preset widths
+- [ ] Toggle a window between tiled and floating, focus floating windows
 
 ## Phase 3: polish
 
 - [ ] Session restore: order, widths and stacks per display and Space
 - [ ] Focus border and inactive window dimming
-- [ ] Focus follows mouse, mouse follows focus
+- [ ] Focus follows mouse with a delay and a scroll limit, mouse follows focus
 - [ ] Per-app rules: fixed slot
-- [ ] Centre modes: never, on overflow, always
+- [ ] Rules match title or title regex, and set display, start width, open without focus, keep own size, force tiled
+- [ ] Centre modes: never, on overflow, always, centre the visible group
+- [ ] Go back to the previous window
+- [ ] Recent windows switcher (⌃⌥Tab) across every display, with snapshots
+- [ ] Shortcut cheatsheet when ⌃⌥ is held
 - [ ] Shortcut recorder with AZERTY, QWERTZ and Dvorak, several bindings per action
+- [ ] Mod key setting, Hyper key support
+- [ ] Per-edge outer gaps, reserved top and bottom for SketchyBar
+- [ ] Animate width changes, reorders, opening and closing on the snapshot overlay, not only slides
+- [ ] Spring stiffness and damping settings
 - [ ] Mac Setup check that warns about Rectangle, Magnet and similar
 
 ## Phase 4: extras
 
+- [ ] Virtual workspaces per display, stacked vertically, with an empty one always ready
+- [ ] Overview: zoom out to see every workspace, drag cards to rearrange
 - [ ] `spool://` URL scheme
 - [ ] `spool` command-line tool
+- [ ] Event stream (`spool subscribe --json`) and a SketchyBar example
+- [ ] Shortcuts that run a shell command
+- [ ] Optional TOML config file with live reload
 - [ ] Raycast script commands
 - [ ] Sparkle auto-updates
 - [ ] Engine self-restart with logs
