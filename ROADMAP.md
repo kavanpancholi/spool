@@ -56,12 +56,12 @@ Spool ships in four phases. Each phase is usable on its own.
 - [ ] Rules match title or title regex, and set display, start width, open without focus, keep own size, force tiled
 - [ ] Centre modes: never, on overflow, always, centre the visible group
 - [x] Go back to the previous window
-- [ ] Recent windows switcher across every display, with snapshots
+- [ ] Recent windows switcher across every display, with app icons and titles
 - [x] Shortcut cheatsheet when ⌃⌥ is held
 - [ ] Shortcut recorder with AZERTY, QWERTZ and Dvorak, several bindings per action
 - [ ] Mod key setting, Hyper key support
 - [ ] Per-edge outer gaps, reserved top and bottom for SketchyBar
-- [ ] Animate width changes, reorders, opening and closing on the snapshot overlay, not only slides
+- [ ] Animate width changes, reorders, opening and closing by moving the real windows
 - [ ] Spring stiffness and damping settings
 - [ ] Mac Setup check that warns about Rectangle, Magnet and similar
 
