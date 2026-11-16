@@ -53,6 +53,13 @@ enum AX {
     AXUIElementSetAttributeValue(element, attribute as CFString, (value ? kCFBooleanTrue : kCFBooleanFalse) as CFTypeRef)
   }
 
+  static func cornerRadius(of window: AXUIElement) -> Double {
+    guard #available(macOS 26, *) else { return 10 }
+    let children: [AXUIElement] = value(window, kAXChildrenAttribute) ?? []
+    let hasToolbar = children.contains { (value($0, kAXRoleAttribute) as String?) == kAXToolbarRole }
+    return hasToolbar ? 26 : 16
+  }
+
   static func windows(of app: AXUIElement) -> [AXUIElement] {
     readWindows(of: app) ?? []
   }

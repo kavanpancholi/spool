@@ -77,6 +77,7 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
   public var isolateDisplays = true
   public var focusBorder = true
   public var borderWidth = 3.0
+  public var cornerRadius = 0.0
   public var dimInactive = false
   public var dimAmount = 0.25
   public var cheatsheetOnHold = true
@@ -105,6 +106,7 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
     isolateDisplays = try c.decodeIfPresent(Bool.self, forKey: .isolateDisplays) ?? defaults.isolateDisplays
     focusBorder = try c.decodeIfPresent(Bool.self, forKey: .focusBorder) ?? defaults.focusBorder
     borderWidth = try c.decodeIfPresent(Double.self, forKey: .borderWidth) ?? defaults.borderWidth
+    cornerRadius = try c.decodeIfPresent(Double.self, forKey: .cornerRadius) ?? defaults.cornerRadius
     dimInactive = try c.decodeIfPresent(Bool.self, forKey: .dimInactive) ?? defaults.dimInactive
     dimAmount = try c.decodeIfPresent(Double.self, forKey: .dimAmount) ?? defaults.dimAmount
     cheatsheetOnHold = try c.decodeIfPresent(Bool.self, forKey: .cheatsheetOnHold) ?? defaults.cheatsheetOnHold

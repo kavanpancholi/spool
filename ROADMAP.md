@@ -68,7 +68,7 @@ Spool ships in four phases. Each phase is usable on its own.
 
 ## Phase 4: extras
 
-- [ ] Virtual workspaces per display, stacked vertically, with an empty one always ready
+- [x] Virtual workspaces per display, stacked vertically, with an empty one always ready
 - [ ] Overview: zoom out to see every workspace, drag cards to rearrange
 - [ ] `spool://` URL scheme
 - [ ] `spool` command-line tool

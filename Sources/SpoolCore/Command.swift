@@ -28,6 +28,8 @@ public enum Command: Hashable, Codable, Sendable {
   case setWidth(WidthPreset)
   case growIntoFreeSpace
   case center
+  case focusWorkspace(Direction)
+  case moveToWorkspace(Direction)
   case sendToNextDisplay
   case toggleFloat
   case toggleEnabled
@@ -57,6 +59,8 @@ public enum Command: Hashable, Codable, Sendable {
     case .setWidth(let width): "Width \(width.label)"
     case .growIntoFreeSpace: "Grow into free space"
     case .center: "Centre column"
+    case .focusWorkspace(let d): d == .up ? "Workspace above" : "Workspace below"
+    case .moveToWorkspace(let d): d == .up ? "Move window to the workspace above" : "Move window to the workspace below"
     case .sendToNextDisplay: "Send to next display"
     case .toggleFloat: "Float or tile window"
     case .toggleEnabled: "Stop or start Spool"
@@ -162,7 +166,7 @@ extension Strip {
     case .center:
       scroll = centeredScroll(column: focused, geometry)
       return CommandResult(handled: true, focusChanged: false, layoutChanged: true)
-    case .sendToNextDisplay, .toggleFloat, .toggleEnabled, .focusPrevious, .keepOwnHeight, .focusFloating:
+    case .focusWorkspace, .moveToWorkspace, .sendToNextDisplay, .toggleFloat, .toggleEnabled, .focusPrevious, .keepOwnHeight, .focusFloating:
       return .unhandled
     }
 

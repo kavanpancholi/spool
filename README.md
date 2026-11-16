@@ -66,6 +66,8 @@ All use ⌃⌥ (Control-Option). Hold ⌃⌥ for a moment to see them on screen.
 | Grow into the free space beside the visible windows | ⌃⌥G |
 | Centre column | ⌃⌥C |
 | Wider or narrower | ⌃⌥ = - |
+| Workspace below or above | ⌃⌥U / ⌃⌥I (or ⌃⌥⇟ / ⌃⌥⇞) |
+| Move window to the workspace below or above | ⌃⌥⇧U / ⌃⌥⇧I |
 | Send to next display | ⌃⌥N |
 | Float or tile window | ⌃⌥T |
 | Pause or start Spool | ⌃⌥Q |
@@ -81,8 +83,13 @@ All use ⌃⌥ (Control-Option). Hold ⌃⌥ for a moment to see them on screen.
   width for new windows too, or leave it empty so each keeps its own. Each
   display can have its own presets and new window width (Settings → Displays).
   The menu bar has Set Width with the presets and a custom value.
+- Each display has workspaces stacked top to bottom, with an empty one always
+  waiting below the last. Leave an empty workspace and it goes away. Windows on
+  other workspaces park in the screen corner. Focus one with ⌘Tab or the bar
+  and Spool switches to its workspace. Session restore keeps them.
 - The focused window gets a border in your accent colour. Settings → Layout
-  can turn it off, change its width, or dim the other windows.
+  can turn it off, change its width or corner radius, or dim the other windows.
+  The corner follows the window's shape on macOS 26.
 
 - Off-screen windows are parked in a bottom corner, away from other
   displays. Spool never minimises or hides them.

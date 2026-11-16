@@ -5,6 +5,7 @@ struct DecoratedWindow {
   let id: WindowID
   let cgID: CGWindowID
   let frame: CGRect
+  let cornerRadius: CGFloat
 }
 
 final class Decorations {
@@ -17,7 +18,7 @@ final class Decorations {
       let width = CGFloat(max(1, settings.borderWidth))
       let panel = border ?? makeBorder()
       border = panel
-      (panel.contentView as? BorderView)?.apply(width: width)
+      (panel.contentView as? BorderView)?.apply(width: width, radius: focused.cornerRadius)
       place(panel, over: focused.frame.insetBy(dx: -width, dy: -width), cgID: focused.cgID, force: reorder || borderTarget != focused.cgID)
       borderTarget = focused.cgID
     } else {
@@ -35,6 +36,7 @@ final class Decorations {
       let existing = dims[window.id]
       let panel = existing?.panel ?? makeDim()
       panel.contentView?.layer?.backgroundColor = NSColor.black.withAlphaComponent(min(0.8, max(0, settings.dimAmount))).cgColor
+      panel.contentView?.layer?.cornerRadius = window.cornerRadius
       place(panel, over: window.frame, cgID: window.cgID, force: reorder || existing?.target != window.cgID)
       dims[window.id] = (panel, window.cgID)
     }
@@ -68,7 +70,7 @@ final class Decorations {
     let panel = Self.makePanel()
     let view = NSView()
     view.wantsLayer = true
-    view.layer?.cornerRadius = 10
+    view.layer?.cornerCurve = .continuous
     panel.contentView = view
     return panel
   }
@@ -97,9 +99,10 @@ private final class BorderView: NSView {
 
   required init?(coder: NSCoder) { nil }
 
-  func apply(width: CGFloat) {
+  func apply(width: CGFloat, radius: CGFloat) {
     layer?.borderWidth = width
-    layer?.cornerRadius = 10 + width
+    layer?.cornerRadius = radius + width
+    layer?.cornerCurve = .continuous
     layer?.borderColor = NSColor.controlAccentColor.cgColor
   }
 }

@@ -17,6 +17,7 @@ final class ManagedWindow {
   let bundleID: String?
   let cgID: CGWindowID?
   let isPrompt: Bool
+  lazy var cornerRadius: Double = AX.cornerRadius(of: element)
 
   init(id: WindowID, element: AXUIElement, pid: pid_t, bundleID: String?, cgID: CGWindowID?, isPrompt: Bool) {
     self.id = id
@@ -41,6 +42,7 @@ public final class WindowManager {
   private let input = InputTap()
   private let hotKeys = HotKeys()
   private let bars = BarController()
+  private let workspaceBadge = WorkspaceBadge()
   private let staircase = DisplayStaircase()
   private let decorations = Decorations()
   private let modifierHold = ModifierHold()
@@ -64,6 +66,7 @@ public final class WindowManager {
   private var spanParts: [Display] = []
   private var separateSpaces = true
   private var strips: [StripKey: Strip] = [:]
+  private var hidden: [StripKey: Workspaces] = [:]
   private var springs: [StripKey: Spring] = [:]
   private var lastTargets: [WindowID: CGRect] = [:]
   private var manuallyFloating: Set<WindowID> = []
@@ -145,6 +148,7 @@ public final class WindowManager {
     staircase.stop()
     modifierHold.stop()
     cheatsheet.hide()
+    workspaceBadge.hide()
     decorations.hideAll()
     focusedID = nil
     bars.hideAll()
@@ -153,6 +157,7 @@ public final class WindowManager {
     windows.values.forEach { writer.forget($0.id) }
     windows.removeAll()
     strips.removeAll()
+    hidden.removeAll()
     springs.removeAll()
     activeKeys.removeAll()
     lastTargets.removeAll()
@@ -213,6 +218,15 @@ public final class WindowManager {
       relayout(key, animated: false)
     case .focusFloating:
       focusNextFloating()
+    case .focusWorkspace(let direction):
+      var stack = hidden[key] ?? Workspaces()
+      let target = direction == .down ? stack.switchDown(from: strip) : direction == .up ? stack.switchUp(from: strip) : nil
+      guard let target else { return }
+      showWorkspace(target, stack, key)
+    case .moveToWorkspace(let direction):
+      var stack = hidden[key] ?? Workspaces()
+      guard let target = stack.moveFocused(direction, from: &strip) else { return }
+      showWorkspace(target, stack, key)
     case .focusPrevious:
       let current = focusedManagedWindow()?.id
       if let id = focusHistory.previous(current: current, where: { windows[$0] != nil && !minimizedIDs.contains($0) }) {
@@ -227,8 +241,54 @@ public final class WindowManager {
     }
   }
 
+  private func showWorkspace(_ strip: Strip, _ stack: Workspaces, _ key: StripKey) {
+    guard let display = display(for: key) else { return }
+    var strip = strip
+    if let index = strip.focusedColumn {
+      strip.scroll = revealScroll(strip, column: index, display)
+    }
+    strips[key] = strip
+    hidden[key] = stack.isEmpty ? nil : stack
+    parkHidden(key)
+    relayout(key, animated: false)
+    if let id = strip.focusedWindow { focus(id) }
+    showWorkspaceBadge(stack.position(current: strip), on: display)
+  }
+
+  private func showWorkspaceBadge(_ position: (index: Int, count: Int), on display: Display) {
+    guard position.count > 1 else { return }
+    workspaceBadge.show(index: position.index, count: position.count, on: display.visibleFrame)
+  }
+
+  private func parkHidden(_ key: StripKey) {
+    guard activeKeys[key.display] == key, let stack = hidden[key], let display = display(for: key) else { return }
+    let context = context(display)
+    for strip in stack.above + stack.below {
+      for (id, placement) in strip.hiddenLayout(context) {
+        guard let window = windows[id] else { continue }
+        parked.insert(id)
+        lastTargets[id] = placement.frame
+        writer.submit(window.element, pid: window.pid, id: id, frame: placement.frame)
+      }
+    }
+  }
+
+  private func hiddenKey(containing id: WindowID) -> StripKey? {
+    hidden.first { $0.value.contains(id) }?.key
+  }
+
+  private func showHiddenWorkspace(containing id: WindowID) -> Bool {
+    guard let key = hiddenKey(containing: id), activeKeys[key.display] == key, var stack = hidden[key],
+      let target = stack.switchTo(containing: id, from: strips[key] ?? Strip())
+    else { return false }
+    var strip = target
+    strip.focus(window: id)
+    showWorkspace(strip, stack, key)
+    return true
+  }
+
   private func focusNextFloating() {
-    let tiled = Set(strips.values.flatMap(\.windows))
+    let tiled = Set(strips.values.flatMap(\.windows) + hidden.values.flatMap(\.windows))
     let onScreen = Spaces.onScreenWindowIDs()
     let floating = windows.values
       .filter { !tiled.contains($0.id) && !minimizedIDs.contains($0.id) && $0.cgID.map(onScreen.contains) == true }
@@ -448,7 +508,7 @@ public final class WindowManager {
       }
       return
     }
-    guard activeKey(containing: window.id) == nil,
+    guard activeKey(containing: window.id) == nil, hiddenKey(containing: window.id) == nil,
       let frame = AX.frame(element),
       let display = display(containing: frame),
       let key = activeKeys[display.uuid]
@@ -484,6 +544,7 @@ public final class WindowManager {
   }
 
   private func removeWindow(_ id: WindowID) {
+    removeFromHidden(id)
     for (key, var strip) in strips where strip.contains(id) {
       strip.remove(id)
       if let index = strip.focusedColumn, let display = display(for: key) {
@@ -505,7 +566,15 @@ public final class WindowManager {
     scheduleDecorate()
   }
 
+  private func removeFromHidden(_ id: WindowID) {
+    for (key, var stack) in hidden where stack.contains(id) {
+      stack.remove(id)
+      hidden[key] = stack.isEmpty ? nil : stack
+    }
+  }
+
   private func removeFromStrips(_ id: WindowID) {
+    removeFromHidden(id)
     for (key, var strip) in strips where strip.contains(id) {
       strip.remove(id)
       strips[key] = strip
@@ -574,6 +643,10 @@ public final class WindowManager {
       track(app, discover: false)
     }
 
+    let liveDisplays = Set(activeKeys.keys)
+    for key in hidden.keys where !liveDisplays.contains(key.display) { hidden[key] = nil }
+    let hiddenIDs = Set(hidden.values.flatMap(\.windows))
+
     let onScreen = Spaces.onScreenWindowIDs()
     var found: [StripKey: [(ManagedWindow, CGRect)]] = [:]
     var unreadable: Set<pid_t> = []
@@ -593,6 +666,7 @@ public final class WindowManager {
         case .never, .notYet:
           continue
         }
+        if hiddenIDs.contains(window.id) { continue }
         if let cgID = window.cgID, !onScreen.isEmpty, !onScreen.contains(cgID) { continue }
         guard let frame = AX.frame(element),
           let key = activeKey(containing: window.id) ?? display(containing: frame).flatMap({ activeKeys[$0.uuid] })
@@ -608,11 +682,17 @@ public final class WindowManager {
       let entries = (found[key] ?? []).sorted { $0.1.minX < $1.1.minX }
       let ids = Set(entries.map(\.0.id))
       var strip = resetOrder ? Strip() : (strips[key] ?? Strip())
-      if restoring, let saved = sessionStore.session.strips[key.display] {
-        strip = saved.restore(entries.map { LiveWindow(id: $0.0.id, cgID: $0.0.cgID, bundleID: $0.0.bundleID) })
+      if restoring, let saved = sessionStore.session.restore(
+        display: key.display,
+        live: entries.map { LiveWindow(id: $0.0.id, cgID: $0.0.cgID, bundleID: $0.0.bundleID) }
+      ) {
+        strip = saved.strip
+        hidden[key] = saved.workspaces.isEmpty ? nil : saved.workspaces
       }
+      let stashed = Set(hidden[key]?.windows ?? [])
+      for id in strip.windows where stashed.contains(id) { strip.remove(id) }
       for id in strip.windows where !ids.contains(id) && !unreadable.contains(windows[id]?.pid ?? 0) { strip.remove(id) }
-      for (window, frame) in entries where !strip.contains(window.id) {
+      for (window, frame) in entries where !strip.contains(window.id) && !stashed.contains(window.id) {
         for (otherKey, var other) in strips where otherKey != key && other.contains(window.id) {
           other.remove(window.id)
           strips[otherKey] = other
@@ -628,6 +708,7 @@ public final class WindowManager {
       }
       strips[key] = strip
       relayout(key, animated: false)
+      parkHidden(key)
     }
   }
 
@@ -664,6 +745,7 @@ public final class WindowManager {
     decorate(reorder: true)
     guard let window else { return }
     guard let key = activeKey(containing: window.id), var strip = strips[key], let display = display(for: key) else {
+      if showHiddenWorkspace(containing: window.id) { return }
       if manuallyFloating.contains(window.id) == false, tileability(window) == .tile {
         addWindow(window.element, pid: window.pid, attempt: 0)
       }
@@ -919,7 +1001,8 @@ public final class WindowManager {
 
   private func restoreAllWindows() {
     writer.cancelPending()
-    for (key, strip) in strips {
+    let all = strips.map { ($0.key, $0.value) } + hidden.flatMap { key, stack in (stack.above + stack.below).map { (key, $0) } }
+    for (key, strip) in all {
       let home = displays.first(where: { $0.uuid == key.display })
       for column in strip.columns {
         for (row, id) in column.windows.enumerated() {
@@ -1041,7 +1124,8 @@ public final class WindowManager {
     for key in Set(activeKeys.values) {
       for id in strips[key]?.windows ?? [] {
         guard let window = windows[id], let cgID = window.cgID, !parked.contains(id), let frame = lastTargets[id] else { continue }
-        let entry = DecoratedWindow(id: id, cgID: cgID, frame: frame)
+        let radius = settings.cornerRadius > 0 ? settings.cornerRadius : window.cornerRadius
+        let entry = DecoratedWindow(id: id, cgID: cgID, frame: frame, cornerRadius: CGFloat(radius))
         if id == focusedID { focused = entry } else { others.append(entry) }
       }
     }
@@ -1068,13 +1152,20 @@ public final class WindowManager {
   private func saveSession() {
     guard isRunning || !strips.isEmpty else { return }
     var snapshot: [String: SessionStrip] = [:]
+    var stacks: [String: SessionWorkspaces] = [:]
+    let describe: (WindowID) -> SessionWindow? = { id in
+      self.windows[id].map { SessionWindow(cgID: $0.cgID, bundleID: $0.bundleID) }
+    }
     for key in Set(activeKeys.values) {
       guard let strip = strips[key] else { continue }
-      snapshot[key.display] = SessionStrip(strip) { id in
-        self.windows[id].map { SessionWindow(cgID: $0.cgID, bundleID: $0.bundleID) }
-      }
+      snapshot[key.display] = SessionStrip(strip, describe: describe)
+      let stack = hidden[key] ?? Workspaces()
+      stacks[key.display] = SessionWorkspaces(
+        above: stack.above.map { SessionStrip($0, describe: describe) },
+        below: stack.below.map { SessionStrip($0, describe: describe) }
+      )
     }
-    sessionStore.update(snapshot)
+    sessionStore.update(snapshot, workspaces: stacks)
   }
 
   private func refreshBars() {
@@ -1114,6 +1205,7 @@ public final class WindowManager {
       focus(id)
       return
     }
+    if showHiddenWorkspace(containing: id) { return }
     guard let key = activeKey(containing: id), var strip = strips[key], let display = display(for: key) else { return }
     strip.focus(window: id)
     if let index = strip.focusedColumn {

@@ -103,6 +103,20 @@ extension Strip {
     return result
   }
 
+  public func hiddenLayout(_ context: LayoutContext) -> [WindowID: Placement] {
+    let geometry = context.geometry
+    var result: [WindowID: Placement] = [:]
+    for column in columns {
+      let width = geometry.points(forFraction: column.width).rounded()
+      let rows = column.rows(top: geometry.viewport.minY + geometry.outerGap, height: geometry.usableHeight, gap: geometry.innerGap)
+      for (row, window) in column.windows.enumerated() {
+        let frame = CGRect(x: geometry.viewport.maxX, y: rows[row].y, width: width, height: rows[row].height)
+        result[window] = .parked(parkedFrame(for: frame, preferLeft: false, context))
+      }
+    }
+    return result
+  }
+
   private func parkedFrame(for frame: CGRect, preferLeft: Bool, _ context: LayoutContext) -> CGRect {
     let display = context.displayFrame
     let leftX = display.minX - frame.width + 1

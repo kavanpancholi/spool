@@ -20,9 +20,10 @@ final class SessionStore {
       .appendingPathComponent("session.json")
   }
 
-  func update(_ strips: [String: SessionStrip]) {
+  func update(_ strips: [String: SessionStrip], workspaces: [String: SessionWorkspaces]) {
     var next = session
     next.strips.merge(strips) { _, new in new }
+    next.workspaces.merge(workspaces) { _, new in new }
     guard next != session else { return }
     session = next
     saveTimer?.invalidate()

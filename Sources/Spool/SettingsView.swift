@@ -126,6 +126,10 @@ private struct LayoutTab: View {
         Toggle("Border around the focused window", isOn: $store.settings.focusBorder)
         Stepper("Border width: \(Int(store.settings.borderWidth)) pt", value: $store.settings.borderWidth, in: 1...8, step: 1)
           .disabled(!store.settings.focusBorder)
+        Stepper(
+          store.settings.cornerRadius > 0 ? "Corner radius: \(Int(store.settings.cornerRadius)) pt" : "Corner radius: match the window",
+          value: $store.settings.cornerRadius, in: 0...32, step: 1
+        )
         Toggle("Dim the other windows", isOn: $store.settings.dimInactive)
         LabeledContent("Dim amount: \(Int(store.settings.dimAmount * 100))%") {
           Slider(value: $store.settings.dimAmount, in: 0.1...0.6)

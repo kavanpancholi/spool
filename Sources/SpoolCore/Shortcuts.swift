@@ -36,6 +36,10 @@ public enum KeyCode {
   public static let e: UInt32 = 14
   public static let v: UInt32 = 9
   public static let g: UInt32 = 5
+  public static let u: UInt32 = 32
+  public static let i: UInt32 = 34
+  public static let pageUp: UInt32 = 116
+  public static let pageDown: UInt32 = 121
 
   public static func name(_ code: UInt32) -> String {
     switch code {
@@ -61,6 +65,10 @@ public enum KeyCode {
     case e: "E"
     case v: "V"
     case g: "G"
+    case u: "U"
+    case i: "I"
+    case pageUp: "⇞"
+    case pageDown: "⇟"
     default:
       if let index = digits.firstIndex(of: code) { "\(index + 1)" } else { "#\(code)" }
     }
@@ -121,6 +129,14 @@ extension Shortcut {
     list.append(Shortcut(KeyCode.c, base, .center))
     list.append(Shortcut(KeyCode.equal, base, .wider))
     list.append(Shortcut(KeyCode.minus, base, .narrower))
+    list.append(Shortcut(KeyCode.u, base, .focusWorkspace(.down)))
+    list.append(Shortcut(KeyCode.i, base, .focusWorkspace(.up)))
+    list.append(Shortcut(KeyCode.pageDown, base, .focusWorkspace(.down)))
+    list.append(Shortcut(KeyCode.pageUp, base, .focusWorkspace(.up)))
+    list.append(Shortcut(KeyCode.u, move, .moveToWorkspace(.down)))
+    list.append(Shortcut(KeyCode.i, move, .moveToWorkspace(.up)))
+    list.append(Shortcut(KeyCode.pageDown, move, .moveToWorkspace(.down)))
+    list.append(Shortcut(KeyCode.pageUp, move, .moveToWorkspace(.up)))
     list.append(Shortcut(KeyCode.n, base, .sendToNextDisplay))
     list.append(Shortcut(KeyCode.t, base, .toggleFloat))
     list.append(Shortcut(KeyCode.q, base, .toggleEnabled))
