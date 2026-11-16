@@ -73,6 +73,11 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
   public var smoothSlides = false
   public var spanDisplays = false
   public var isolateDisplays = true
+  public var focusBorder = true
+  public var borderWidth = 3.0
+  public var dimInactive = false
+  public var dimAmount = 0.25
+  public var cheatsheetOnHold = true
   public var thumbWheel = ThumbWheelSettings()
   public var trackpad = TrackpadSettings()
   public var floatingBundleIDs: [String] = []
@@ -94,6 +99,11 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
     smoothSlides = try c.decodeIfPresent(Bool.self, forKey: .smoothSlides) ?? defaults.smoothSlides
     spanDisplays = try c.decodeIfPresent(Bool.self, forKey: .spanDisplays) ?? defaults.spanDisplays
     isolateDisplays = try c.decodeIfPresent(Bool.self, forKey: .isolateDisplays) ?? defaults.isolateDisplays
+    focusBorder = try c.decodeIfPresent(Bool.self, forKey: .focusBorder) ?? defaults.focusBorder
+    borderWidth = try c.decodeIfPresent(Double.self, forKey: .borderWidth) ?? defaults.borderWidth
+    dimInactive = try c.decodeIfPresent(Bool.self, forKey: .dimInactive) ?? defaults.dimInactive
+    dimAmount = try c.decodeIfPresent(Double.self, forKey: .dimAmount) ?? defaults.dimAmount
+    cheatsheetOnHold = try c.decodeIfPresent(Bool.self, forKey: .cheatsheetOnHold) ?? defaults.cheatsheetOnHold
     thumbWheel = try c.decodeIfPresent(ThumbWheelSettings.self, forKey: .thumbWheel) ?? defaults.thumbWheel
     trackpad = try c.decodeIfPresent(TrackpadSettings.self, forKey: .trackpad) ?? defaults.trackpad
     floatingBundleIDs = try c.decodeIfPresent([String].self, forKey: .floatingBundleIDs) ?? defaults.floatingBundleIDs

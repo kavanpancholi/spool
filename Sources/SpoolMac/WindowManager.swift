@@ -44,6 +44,12 @@ public final class WindowManager {
   private let snapshots = Snapshots()
   private let overlay = SlideOverlay()
   private let staircase = DisplayStaircase()
+  private let decorations = Decorations()
+  private let modifierHold = ModifierHold()
+  private let cheatsheet = CheatsheetPanel()
+  private var focusHistory = FocusHistory()
+  private var focusedID: WindowID?
+  private var decorateQueued = false
   private var sliding: Set<StripKey> = []
   private var swiping: Set<StripKey> = []
   private var snapshotTimer: Timer?
@@ -87,6 +93,8 @@ public final class WindowManager {
     bars.onSelect = { [weak self] id in self?.reveal(id) }
     bars.onMove = { [weak self] id, display, index in self?.moveTile(id, toDisplay: display, index: index) }
     bars.label = { [weak self] id in self?.label(for: id) ?? "" }
+    modifierHold.onHold = { [weak self] in self?.showCheatsheet() }
+    modifierHold.onRelease = { [weak self] in self?.cheatsheet.hide() }
     store.$settings
       .dropFirst()
       .receive(on: RunLoop.main)
@@ -110,6 +118,7 @@ public final class WindowManager {
     }
     if settings.smoothSlides { snapshots.requestPermissionOnce() }
     staircase.start { [weak self] in self?.scheduleRebuild(after: 0.1) }
+    if settings.cheatsheetOnHold { modifierHold.start() }
     rebuild(resetOrder: true)
     displayWatch = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
       guard let self, Display.current() != self.displays else { return }
@@ -134,6 +143,10 @@ public final class WindowManager {
     workspaceTokens.removeAll()
     restoreAllWindows()
     staircase.stop()
+    modifierHold.stop()
+    cheatsheet.hide()
+    decorations.hideAll()
+    focusedID = nil
     bars.hideAll()
     overlay.hideAll()
     sliding.removeAll()
@@ -172,11 +185,14 @@ public final class WindowManager {
     input.trackpad = settings.trackpad
     guard isRunning else { return }
     if settings.smoothSlides { snapshots.requestPermissionOnce() }
+    if settings.cheatsheetOnHold { modifierHold.start() } else { modifierHold.stop() }
     rebuild(resetOrder: false)
+    decorate(reorder: true)
   }
 
 
   public func perform(_ command: Command) {
+    modifierHold.cancel()
     if command == .toggleEnabled {
       store.settings.enabled.toggle()
       return
@@ -188,6 +204,11 @@ public final class WindowManager {
       sendToNextDisplay(from: key)
     case .toggleFloat:
       toggleFloat()
+    case .focusPrevious:
+      let current = focusedManagedWindow()?.id
+      if let id = focusHistory.previous(current: current, where: { windows[$0] != nil && !minimizedIDs.contains($0) }) {
+        reveal(id)
+      }
     default:
       let result = strip.apply(command, settings: settings, geometry: geometry(display))
       guard result.handled else { return }
@@ -447,6 +468,9 @@ public final class WindowManager {
     manuallyFloating.remove(id)
     writer.forget(id)
     snapshots.forget(id)
+    focusHistory.forget(id)
+    if focusedID == id { focusedID = nil }
+    scheduleDecorate()
   }
 
   private func removeFromStrips(_ id: WindowID) {
@@ -581,7 +605,12 @@ public final class WindowManager {
   private func syncFocus() {
     scheduleBarRefresh()
     refreshSnapshots(after: 1.0)
-    guard isRunning, let window = focusedManagedWindow() else { return }
+    guard isRunning else { return }
+    let window = focusedManagedWindow()
+    if let id = window?.id { focusHistory.record(id) }
+    focusedID = window?.id
+    decorate(reorder: true)
+    guard let window else { return }
     guard let key = activeKey(containing: window.id), var strip = strips[key], let display = display(for: key) else {
       if manuallyFloating.contains(window.id) == false, tileability(window) == .tile {
         addWindow(window.element, pid: window.pid, attempt: 0)
@@ -799,6 +828,7 @@ public final class WindowManager {
     guard wallpapers.count == parts.count else { return false }
     zip(parts, wallpapers).forEach { overlay.show(on: $0, wallpaper: $1) }
     sliding.insert(key)
+    decorations.hideAll()
     return true
   }
 
@@ -809,6 +839,7 @@ public final class WindowManager {
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self] in
         guard let self, self.sliding.contains(key), self.springs[key]?.isSettled != false, !self.swiping.contains(key) else { return }
         self.sliding.remove(key)
+        self.decorate(reorder: true)
         if let display = self.display(for: key) {
           self.surfaces(of: display).forEach { self.overlay.hide($0.uuid) }
         }
@@ -841,6 +872,7 @@ public final class WindowManager {
       lastTargets[id] = placement.frame
       writer.submit(window.element, pid: window.pid, id: id, frame: placement.frame)
     }
+    scheduleDecorate()
   }
 
   private func startAnimating() {
@@ -976,6 +1008,40 @@ public final class WindowManager {
     var viewport = display.visibleFrame
     if settings.showBar && display.isPrimary { viewport.size.height -= BarMetrics.reserve }
     return StripGeometry(viewport: viewport, innerGap: settings.innerGap, outerGap: settings.outerGap)
+  }
+
+  private func scheduleDecorate() {
+    guard !decorateQueued else { return }
+    decorateQueued = true
+    DispatchQueue.main.async { [weak self] in
+      self?.decorateQueued = false
+      self?.decorate(reorder: false)
+    }
+  }
+
+  private func decorate(reorder: Bool) {
+    let fullScreen = displays.contains { Spaces.isFullScreen(displayUUID: $0.uuid) }
+    guard isRunning, sliding.isEmpty, !fullScreen, settings.focusBorder || settings.dimInactive else {
+      decorations.hideAll()
+      return
+    }
+    var focused: DecoratedWindow?
+    var others: [DecoratedWindow] = []
+    for key in Set(activeKeys.values) {
+      for id in strips[key]?.windows ?? [] {
+        guard let window = windows[id], let cgID = window.cgID, !parked.contains(id), let frame = lastTargets[id] else { continue }
+        let entry = DecoratedWindow(id: id, cgID: cgID, frame: frame)
+        if id == focusedID { focused = entry } else { others.append(entry) }
+      }
+    }
+    decorations.update(focused: focused, others: others, settings: settings, reorder: reorder)
+  }
+
+  private func showCheatsheet() {
+    guard isRunning, settings.cheatsheetOnHold else { return }
+    let mouse = NSEvent.mouseLocation
+    let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
+    cheatsheet.show(Shortcut.cheatsheet(Shortcut.defaults), on: screen)
   }
 
   private func scheduleBarRefresh() {

@@ -9,6 +9,7 @@ public enum Command: Hashable, Codable, Sendable {
   case focusFirst
   case focusLast
   case focusIndex(Int)
+  case focusPrevious
   case move(Direction)
   case moveFirst
   case moveLast
@@ -27,6 +28,7 @@ public enum Command: Hashable, Codable, Sendable {
     case .focusFirst: "Focus first window"
     case .focusLast: "Focus last window"
     case .focusIndex(let i): "Focus window \(i)"
+    case .focusPrevious: "Back to previous window"
     case .move(let d): "Move window \(d.rawValue)"
     case .moveFirst: "Move window to start"
     case .moveLast: "Move window to end"
@@ -118,7 +120,7 @@ extension Strip {
     case .center:
       scroll = centeredScroll(column: focused, geometry)
       return CommandResult(handled: true, focusChanged: false, layoutChanged: true)
-    case .sendToNextDisplay, .toggleFloat, .toggleEnabled:
+    case .sendToNextDisplay, .toggleFloat, .toggleEnabled, .focusPrevious:
       return .unhandled
     }
 

@@ -46,13 +46,14 @@ turning them on in Settings also asks for Screen Recording.
 
 ## Keyboard shortcuts
 
-All use ⌃⌥ (Control-Option).
+All use ⌃⌥ (Control-Option). Hold ⌃⌥ for a moment to see them on screen.
 
 | Action | Keys |
 | --- | --- |
 | Focus left, down, up, right | ⌃⌥ H J K L or arrows |
 | Focus first or last window | ⌃⌥⌘ ← → |
 | Focus window 1 to 9 | ⌃⌥ 1 … 9 |
+| Back to the previous window | ⌃⌥⇥ |
 | Move window | ⌃⌥⇧ H L or ← → |
 | Move window to start or end | ⌃⌥⇧⌘ ← → |
 | Cycle preset widths | ⌃⌥R |
@@ -64,6 +65,9 @@ All use ⌃⌥ (Control-Option).
 | Pause or start Spool | ⌃⌥Q |
 
 ## How it works
+
+- The focused window gets a border in your accent colour. Settings → Layout
+  can turn it off, change its width, or dim the other windows.
 
 - Off-screen windows are parked in a bottom corner, away from other
   displays. Spool never minimises or hides them.

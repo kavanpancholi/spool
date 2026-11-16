@@ -123,6 +123,17 @@ private struct LayoutTab: View {
 
   var body: some View {
     Form {
+      Section("Focus") {
+        Toggle("Border around the focused window", isOn: $store.settings.focusBorder)
+        Stepper("Border width: \(Int(store.settings.borderWidth)) pt", value: $store.settings.borderWidth, in: 1...8, step: 1)
+          .disabled(!store.settings.focusBorder)
+        Toggle("Dim the other windows", isOn: $store.settings.dimInactive)
+        LabeledContent("Dim amount: \(Int(store.settings.dimAmount * 100))%") {
+          Slider(value: $store.settings.dimAmount, in: 0.1...0.6)
+        }
+        .disabled(!store.settings.dimInactive)
+        Toggle("Show shortcuts while ⌃⌥ is held", isOn: $store.settings.cheatsheetOnHold)
+      }
       Section("Gaps") {
         Stepper("Between windows: \(Int(store.settings.innerGap)) pt", value: $store.settings.innerGap, in: 0...64, step: 2)
         Stepper("At screen edges: \(Int(store.settings.outerGap)) pt", value: $store.settings.outerGap, in: 0...64, step: 2)

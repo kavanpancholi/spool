@@ -30,6 +30,7 @@ public enum KeyCode {
   public static let n: UInt32 = 45
   public static let q: UInt32 = 12
   public static let t: UInt32 = 17
+  public static let tab: UInt32 = 48
 
   public static func name(_ code: UInt32) -> String {
     switch code {
@@ -49,6 +50,7 @@ public enum KeyCode {
     case n: "N"
     case q: "Q"
     case t: "T"
+    case tab: "⇥"
     default:
       if let index = digits.firstIndex(of: code) { "\(index + 1)" } else { "#\(code)" }
     }
@@ -92,6 +94,7 @@ extension Shortcut {
     for (offset, key) in KeyCode.digits.enumerated() {
       list.append(Shortcut(key, base, .focusIndex(offset + 1)))
     }
+    list.append(Shortcut(KeyCode.tab, base, .focusPrevious))
     list.append(Shortcut(KeyCode.r, base, .cycleWidth))
     list.append(Shortcut(KeyCode.f, base, .fullWidth))
     list.append(Shortcut(KeyCode.c, base, .center))
@@ -102,4 +105,36 @@ extension Shortcut {
     list.append(Shortcut(KeyCode.q, base, .toggleEnabled))
     return list
   }()
+}
+
+public struct CheatsheetEntry: Equatable, Sendable {
+  public let title: String
+  public let keys: [String]
+}
+
+extension Shortcut {
+  public static func cheatsheet(_ shortcuts: [Shortcut]) -> [CheatsheetEntry] {
+    var entries: [CheatsheetEntry] = []
+    var indexOf: [String: Int] = [:]
+    for shortcut in shortcuts {
+      let title: String
+      let key: String
+      if case .focusIndex = shortcut.command {
+        title = "Focus window 1 to 9"
+        key = shortcut.modifiers.symbols + "1…9"
+      } else {
+        title = shortcut.command.title
+        key = shortcut.display
+      }
+      if let index = indexOf[title] {
+        if !entries[index].keys.contains(key) {
+          entries[index] = CheatsheetEntry(title: title, keys: entries[index].keys + [key])
+        }
+      } else {
+        indexOf[title] = entries.count
+        entries.append(CheatsheetEntry(title: title, keys: [key]))
+      }
+    }
+    return entries
+  }
 }
