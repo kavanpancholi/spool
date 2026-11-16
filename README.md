@@ -63,6 +63,7 @@ All use ⌃⌥ (Control-Option). Hold ⌃⌥ for a moment to see them on screen.
 | Focus the next floating window | ⌃⌥V |
 | Cycle preset widths | ⌃⌥R |
 | Full width | ⌃⌥F |
+| Grow into the free space beside the visible windows | ⌃⌥G |
 | Centre column | ⌃⌥C |
 | Wider or narrower | ⌃⌥ = - |
 | Send to next display | ⌃⌥N |
@@ -76,6 +77,10 @@ All use ⌃⌥ (Control-Option). Hold ⌃⌥ for a moment to see them on screen.
   Windows" in the menu ignores the saved order and starts fresh.
 - Drag a window by its title bar and let go between two columns to move it
   there, or over the middle of a column to add it to that stack.
+- Preset widths can be a percentage or points, like `33%, 50%, 1200pt`. Set a
+  width for new windows too, or leave it empty so each keeps its own. Each
+  display can have its own presets and new window width (Settings → Displays).
+  The menu bar has Set Width with the presets and a custom value.
 - The focused window gets a border in your accent colour. Settings → Layout
   can turn it off, change its width, or dim the other windows.
 

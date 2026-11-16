@@ -275,6 +275,28 @@ public struct Strip: Equatable, Sendable {
     }
   }
 
+  mutating func growIntoFreeSpace(_ geometry: StripGeometry) -> Double? {
+    guard let focused = focusedColumn, columns.indices.contains(focused) else { return nil }
+    let lefts = columnLefts(geometry)
+    func visible(_ index: Int) -> Bool {
+      let right = lefts[index] + geometry.points(forFraction: columns[index].width)
+      return lefts[index] - geometry.outerGap >= scroll - 0.5 && right + geometry.outerGap <= scroll + geometry.viewport.width + 0.5
+    }
+    var first = focused
+    var last = focused
+    if visible(focused) {
+      while first > 0 && visible(first - 1) { first -= 1 }
+      while last < columns.count - 1 && visible(last + 1) { last += 1 }
+    }
+    let others = (first...last).filter { $0 != focused }
+      .reduce(0) { $0 + geometry.points(forFraction: columns[$1].width) + geometry.innerGap }
+    let target = geometry.usableWidth - others
+    guard target - geometry.points(forFraction: columns[focused].width) > 0.5 else { return nil }
+    columns[focused].width = min(1, (target + geometry.innerGap) / (geometry.usableWidth + geometry.innerGap))
+    columns[focused].widthBeforeFullWidth = nil
+    return min(maxScroll(geometry), max(0, columnLefts(geometry)[first] - geometry.outerGap))
+  }
+
   public func contentWidth(_ geometry: StripGeometry) -> Double {
     guard !columns.isEmpty else { return 0 }
     let widths = columns.reduce(0) { $0 + geometry.points(forFraction: $1.width) }

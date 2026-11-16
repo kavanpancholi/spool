@@ -42,8 +42,8 @@ Spool ships in four phases. Each phase is usable on its own.
 - [x] Drag a window by its title bar to reorder: drop between columns to move it, on a column to stack it
 - [ ] While dragging, a band shows where it lands and holding near the screen edge scrolls the strip
 - [x] Keep original height per column
-- [ ] Set width to a percentage or point value, grow into free space
-- [ ] Per-display default and preset widths
+- [x] Set width to a percentage or point value, grow into free space
+- [x] Per-display default and preset widths
 - [x] Toggle a window between tiled and floating (⌃⌥T)
 - [x] Focus floating windows
 

@@ -78,6 +78,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       rearrange.target = self
       rearrange.isEnabled = running
       menu.addItem(rearrange)
+      let width = NSMenuItem(title: "Set Width", action: nil, keyEquivalent: "")
+      width.submenu = widthMenu()
+      width.isEnabled = running
+      menu.addItem(width)
     }
     if !permissions.allGranted {
       let permission = NSMenuItem(title: "Permissions…", action: #selector(showPermissionsAction), keyEquivalent: "")
@@ -98,6 +102,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   @objc private func openMenu() {
     guard let button = statusItem.button else { return }
+    rebuildMenu()
     let below: CGFloat = button.isFlipped ? button.bounds.height + 5 : -5
     menu.popUp(positioning: nil, at: NSPoint(x: 0, y: below), in: button)
   }
@@ -108,6 +113,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   @objc private func rearrange() {
     manager.rearrange()
+  }
+
+  private func widthMenu() -> NSMenu {
+    let submenu = NSMenu()
+    for preset in store.settings.widthPresets + [.fraction(1)] {
+      let item = NSMenuItem(title: preset.label, action: #selector(setWidth(_:)), keyEquivalent: "")
+      item.representedObject = preset.label
+      item.target = self
+      submenu.addItem(item)
+    }
+    submenu.addItem(.separator())
+    let grow = NSMenuItem(title: Command.growIntoFreeSpace.title, action: #selector(growIntoFreeSpace), keyEquivalent: "g")
+    grow.keyEquivalentModifierMask = [.control, .option]
+    grow.target = self
+    submenu.addItem(grow)
+    let custom = NSMenuItem(title: "Custom…", action: #selector(customWidth), keyEquivalent: "")
+    custom.target = self
+    submenu.addItem(custom)
+    return submenu
+  }
+
+  @objc private func setWidth(_ sender: NSMenuItem) {
+    guard let label = sender.representedObject as? String, let preset = WidthPreset(parsing: label) else { return }
+    manager.perform(.setWidth(preset))
+  }
+
+  @objc private func growIntoFreeSpace() {
+    manager.perform(.growIntoFreeSpace)
+  }
+
+  @objc private func customWidth() {
+    let alert = NSAlert()
+    alert.messageText = "Width of the focused window"
+    alert.informativeText = "A percentage of the screen, like 40%, or points, like 1200pt."
+    let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+    field.placeholderString = "40% or 1200pt"
+    alert.accessoryView = field
+    alert.addButton(withTitle: "Set")
+    alert.addButton(withTitle: "Cancel")
+    alert.window.initialFirstResponder = field
+    let front = NSWorkspace.shared.frontmostApplication
+    NSApp.activate(ignoringOtherApps: true)
+    let response = alert.runModal()
+    front?.activate()
+    guard response == .alertFirstButtonReturn, let preset = WidthPreset(parsing: field.stringValue) else { return }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+      self?.manager.perform(.setWidth(preset))
+    }
   }
 
 

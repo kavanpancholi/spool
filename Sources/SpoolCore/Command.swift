@@ -25,6 +25,8 @@ public enum Command: Hashable, Codable, Sendable {
   case wider
   case narrower
   case fullWidth
+  case setWidth(WidthPreset)
+  case growIntoFreeSpace
   case center
   case sendToNextDisplay
   case toggleFloat
@@ -52,6 +54,8 @@ public enum Command: Hashable, Codable, Sendable {
     case .wider: "Wider"
     case .narrower: "Narrower"
     case .fullWidth: "Full width"
+    case .setWidth(let width): "Width \(width.label)"
+    case .growIntoFreeSpace: "Grow into free space"
     case .center: "Centre column"
     case .sendToNextDisplay: "Send to next display"
     case .toggleFloat: "Float or tile window"
@@ -129,7 +133,7 @@ extension Strip {
       columns.append(column)
       focusedColumn = columns.count - 1
     case .cycleWidth:
-      let presets = settings.sanitizedWidthPresets
+      let presets = settings.presetFractions(geometry)
       let current = columns[focused].width
       let next = presets.first { $0 > current + 0.01 } ?? presets[0]
       columns[focused].width = next
@@ -148,6 +152,13 @@ extension Strip {
         columns[focused].widthBeforeFullWidth = columns[focused].width
         columns[focused].width = 1
       }
+    case .setWidth(let width):
+      columns[focused].width = width.fraction(in: geometry)
+      columns[focused].widthBeforeFullWidth = nil
+    case .growIntoFreeSpace:
+      guard let start = growIntoFreeSpace(geometry) else { return .unhandled }
+      scroll = start
+      return CommandResult(handled: true, focusChanged: false, layoutChanged: self != before)
     case .center:
       scroll = centeredScroll(column: focused, geometry)
       return CommandResult(handled: true, focusChanged: false, layoutChanged: true)

@@ -219,7 +219,7 @@ public final class WindowManager {
         reveal(id)
       }
     default:
-      let result = strip.apply(command, settings: settings, geometry: geometry(display))
+      let result = strip.apply(command, settings: settings.forDisplay(display.uuid), geometry: geometry(display))
       guard result.handled else { return }
       strips[key] = strip
       if result.layoutChanged { relayout(key, animated: true) }
@@ -459,7 +459,7 @@ public final class WindowManager {
     guard let stripDisplay = self.display(for: key) else { return }
     var strip = strips[key] ?? Strip()
     let geometry = geometry(stripDisplay)
-    strip.insert(window.id, width: columnWidth(frame, geometry), focus: focused)
+    strip.insert(window.id, width: newColumnWidth(window, frame, stripDisplay), focus: focused)
     if window.isPrompt, let index = strip.columnIndex(of: window.id) {
       strip.columns[index].fixedHeight = frame.height
     }
@@ -469,6 +469,14 @@ public final class WindowManager {
     strips[key] = strip
     relayout(key, animated: true)
     if window.isPrompt { focus(window.id) }
+  }
+
+  private func newColumnWidth(_ window: ManagedWindow, _ frame: CGRect, _ display: Display) -> Double {
+    let geometry = geometry(display)
+    if !window.isPrompt, let width = settings.forDisplay(display.uuid).defaultWidth {
+      return width.fraction(in: geometry)
+    }
+    return columnWidth(frame, geometry)
   }
 
   private func columnWidth(_ frame: CGRect, _ geometry: StripGeometry) -> Double {

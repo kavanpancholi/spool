@@ -138,26 +138,26 @@ private struct LayoutTab: View {
         Stepper("At screen edges: \(Int(store.settings.outerGap)) pt", value: $store.settings.outerGap, in: 0...64, step: 2)
       }
       Section {
-        TextField("Preset widths (%)", text: $presetsText)
+        TextField("Preset widths", text: $presetsText)
           .onSubmit(savePresets)
+        WidthField(title: "Width of new windows", width: $store.settings.defaultWidth)
         Stepper("Wider/narrower step: \(Int(store.settings.widthStep * 100))%", value: $store.settings.widthStep, in: 0.05...0.25, step: 0.05)
       } header: {
         Text("Widths")
       } footer: {
-        Text("Comma separated, for example 33, 50, 66. ⌃⌥R cycles through them. Press Return to save.")
+        Text("Comma separated, in % or points, for example 33%, 50%, 1200pt. ⌃⌥R cycles through them. Leave the new window width empty to keep each window's own width. Press Return to save. Each display can override these in the Displays tab.")
       }
     }
     .formStyle(.grouped)
     .onAppear {
-      presetsText = store.settings.widthPresets.map { String(Int(($0 * 100).rounded())) }.joined(separator: ", ")
+      presetsText = store.settings.widthPresets.map(\.label).joined(separator: ", ")
     }
   }
 
   private func savePresets() {
-    let values = presetsText.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
-      .filter { $0 >= 10 && $0 <= 100 }
-      .map { $0 / 100 }
-    if !values.isEmpty { store.settings.widthPresets = values.sorted() }
+    let values = WidthPreset.parseList(presetsText)
+    if !values.isEmpty { store.settings.widthPresets = values }
+    presetsText = store.settings.widthPresets.map(\.label).joined(separator: ", ")
   }
 }
 
@@ -193,6 +193,18 @@ private struct DisplaysTab: View {
               if !included { store.settings.excludedDisplayIDs.append(display.uuid) }
             }
           ))
+        }
+      }
+      ForEach(displays, id: \.uuid) { display in
+        Section {
+          DisplayWidthsEditor(widths: Binding(
+            get: { store.settings.displayWidths[display.uuid] ?? DisplayWidths() },
+            set: { store.settings.displayWidths[display.uuid] = $0.isEmpty ? nil : $0 }
+          ))
+        } header: {
+          Text("Widths on \(display.name)")
+        } footer: {
+          Text("Empty fields use the Layout tab.")
         }
       }
     }
@@ -255,5 +267,40 @@ struct AppListEditor: View {
       .compactMap(\.bundleIdentifier)
       .filter { !excluding.contains($0) && $0 != Bundle.main.bundleIdentifier }
     return Array(Set(ids)).sorted { name(for: $0) < name(for: $1) }
+  }
+}
+
+private struct WidthField: View {
+  let title: String
+  @Binding var width: WidthPreset?
+  @State private var text = ""
+
+  var body: some View {
+    TextField(title, text: $text, prompt: Text("own width"))
+      .onSubmit(save)
+      .onAppear { text = width?.label ?? "" }
+  }
+
+  private func save() {
+    width = WidthPreset(parsing: text)
+    text = width?.label ?? ""
+  }
+}
+
+private struct DisplayWidthsEditor: View {
+  @Binding var widths: DisplayWidths
+  @State private var presetsText = ""
+
+  var body: some View {
+    TextField("Preset widths", text: $presetsText, prompt: Text("same as Layout"))
+      .onSubmit(savePresets)
+      .onAppear { presetsText = widths.presets?.map(\.label).joined(separator: ", ") ?? "" }
+    WidthField(title: "Width of new windows", width: $widths.defaultWidth)
+  }
+
+  private func savePresets() {
+    let values = WidthPreset.parseList(presetsText)
+    widths.presets = values.isEmpty ? nil : values
+    presetsText = widths.presets?.map(\.label).joined(separator: ", ") ?? ""
   }
 }

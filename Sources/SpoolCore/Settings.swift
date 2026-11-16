@@ -65,7 +65,9 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
   public var enabled = true
   public var innerGap = 8.0
   public var outerGap = 8.0
-  public var widthPresets = [1.0 / 3.0, 0.5, 2.0 / 3.0]
+  public var widthPresets: [WidthPreset] = [.fraction(1.0 / 3.0), .fraction(0.5), .fraction(2.0 / 3.0)]
+  public var defaultWidth: WidthPreset?
+  public var displayWidths: [String: DisplayWidths] = [:]
   public var widthStep = 0.1
   public var heightStep = 0.1
   public var centerMode = CenterMode.never
@@ -91,7 +93,9 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
     enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? defaults.enabled
     innerGap = try c.decodeIfPresent(Double.self, forKey: .innerGap) ?? defaults.innerGap
     outerGap = try c.decodeIfPresent(Double.self, forKey: .outerGap) ?? defaults.outerGap
-    widthPresets = try c.decodeIfPresent([Double].self, forKey: .widthPresets) ?? defaults.widthPresets
+    widthPresets = try c.decodeIfPresent([WidthPreset].self, forKey: .widthPresets) ?? defaults.widthPresets
+    defaultWidth = try c.decodeIfPresent(WidthPreset.self, forKey: .defaultWidth)
+    displayWidths = try c.decodeIfPresent([String: DisplayWidths].self, forKey: .displayWidths) ?? defaults.displayWidths
     widthStep = try c.decodeIfPresent(Double.self, forKey: .widthStep) ?? defaults.widthStep
     heightStep = try c.decodeIfPresent(Double.self, forKey: .heightStep) ?? defaults.heightStep
     centerMode = try c.decodeIfPresent(CenterMode.self, forKey: .centerMode) ?? defaults.centerMode
@@ -115,8 +119,16 @@ public struct SpoolSettings: Codable, Equatable, Sendable {
     version = Self.currentVersion
   }
 
-  public var sanitizedWidthPresets: [Double] {
-    let valid = widthPresets.filter { $0 > 0.05 && $0 <= 1.0 }.sorted()
-    return valid.isEmpty ? [0.5] : valid
+  public func forDisplay(_ uuid: String?) -> SpoolSettings {
+    guard let uuid, let overrides = displayWidths[uuid] else { return self }
+    var copy = self
+    if let presets = overrides.presets, !presets.isEmpty { copy.widthPresets = presets }
+    if let width = overrides.defaultWidth { copy.defaultWidth = width }
+    return copy
+  }
+
+  public func presetFractions(_ geometry: StripGeometry) -> [Double] {
+    let values = Set(widthPresets.map { $0.fraction(in: geometry) }).sorted()
+    return values.isEmpty ? [0.5] : values
   }
 }
