@@ -1034,13 +1034,9 @@ public final class WindowManager {
       moveWindow(id, from: sourceKey, to: targetKey, width: strip.columns[source].width) { _, _ in index }
       return
     }
-    guard let display = display(for: sourceKey) else { return }
     strip.moveColumn(from: source, to: min(index, strip.columns.count - 1))
-    if let focused = strip.focusedColumn {
-      strip.scroll = revealScroll(strip, column: focused, display)
-    }
     strips[sourceKey] = strip
-    relayout(sourceKey, animated: true)
+    reveal(id)
   }
 
   private func label(for id: WindowID) -> String {
